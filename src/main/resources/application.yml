@@ -1,0 +1,26 @@
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/interview_db?useSSL=false&serverTimezone=Asia/Seoul&characterEncoding=UTF-8&allowPublicKeyRetrieval=true}
+    username: ${SPRING_DATASOURCE_USERNAME:root}
+    password: ${SPRING_DATASOURCE_PASSWORD:suyoung2579@}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    defer-datasource-initialization: true
+    properties:
+      hibernate:
+        format_sql: true
+  sql:
+    init:
+      mode: always
+
+jwt:
+  secret: ${JWT_SECRET:interview-jwt-secret-key-must-be-at-least-256-bits-long-so-add-more-chars}
+  expiration: 86400000
+
+claude:
+  api-key: ${CLAUDE_API_KEY:temp}
+  api-url: https://api.anthropic.com/v1/messages
+  model: claude-haiku-4-5-20251001
