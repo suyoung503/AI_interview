@@ -54,7 +54,7 @@ public class StatsService {
                 .map(entry -> new StatsResponse.CategoryStat(
                         entry.getKey(),
                         entry.getValue().stream().mapToInt(Answer::getScore).average().orElse(0.0),
-                        entry.getValue().size()
+                        entry.getValue().size()// 그룹의 답변 수
                 ))
                 .toList();
 
