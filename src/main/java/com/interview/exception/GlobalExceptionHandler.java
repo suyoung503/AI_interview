@@ -2,6 +2,7 @@ package com.interview.exception;
 
 import lombok.Builder;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -13,7 +14,15 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(CustomException.class)
     public ResponseEntity<ErrorResponse> handleCustomException(CustomException e) {
-        ErrorCode code = e.getErrorCode();
+        return errorResponse(e.getErrorCode());
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ErrorResponse> handleValidationException() {
+        return errorResponse(ErrorCode.INVALID_INPUT);
+    }
+
+    private ResponseEntity<ErrorResponse> errorResponse(ErrorCode code) {
         return ResponseEntity
                 .status(code.getStatus())
                 .body(new ErrorResponse(code.getStatus().value(), code.getMessage()));
