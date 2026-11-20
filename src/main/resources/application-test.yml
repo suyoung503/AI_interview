@@ -16,10 +16,5 @@ jwt:
   secret: test-jwt-secret-key-must-be-at-least-256-bits-long-so-add-more-test-chars
   expiration: 86400000
 
-claude:
-  api-key: test-key
-  api-url: https://api.anthropic.com/v1/messages
-  model: claude-haiku-4-5-20251001
-
 groq:
   api-key: ""

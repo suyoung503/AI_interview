@@ -9,7 +9,7 @@ import com.interview.dto.InterviewAiModels.TechnicalAccuracy;
 import com.interview.exception.CustomException;
 import com.interview.exception.ErrorCode;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.env.Environment;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
@@ -55,7 +55,12 @@ public class GroqService {
     private final Duration responseTimeout;
 
     @Autowired
-    public GroqService(@Value("${groq.api-key:}") String apiKey) {
+    public GroqService(Environment environment) {
+        // 환경 변수는 테스트 프로필의 YAML보다 우선하므로 테스트에서는 아예 조회하지 않는다.
+        this(environment.matchesProfiles("test") ? "" : environment.getProperty("groq.api-key", ""));
+    }
+
+    public GroqService(String apiKey) {
         this(apiKey, ENDPOINT, Duration.ofSeconds(5), Duration.ofSeconds(30));
     }
 

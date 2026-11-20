@@ -34,7 +34,8 @@ build/
 
 ### Secrets ###
 src/main/resources/application.yml
-.env
+.env*
+!.env.example
 
 ### macOS ###
 .DS_Store

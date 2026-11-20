@@ -23,8 +23,11 @@ services:
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/interview_db?useSSL=false&serverTimezone=Asia/Seoul&characterEncoding=UTF-8&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: ${SPRING_JPA_HIBERNATE_DDL_AUTO:-validate}
+      SPRING_SQL_INIT_MODE: ${SPRING_SQL_INIT_MODE:-never}
+      SPRING_JPA_DEFER_DATASOURCE_INITIALIZATION: "true"
       JWT_SECRET: ${JWT_SECRET}
-      CLAUDE_API_KEY: ${CLAUDE_API_KEY}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
     depends_on:
       mysql:
         condition: service_healthy

@@ -48,8 +48,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest(properties = {"spring.datasource.url=jdbc:h2:mem:flow;MODE=MySQL",
-        "spring.datasource.hikari.transaction-isolation=TRANSACTION_READ_COMMITTED",
-        "claude.api-url=http://127.0.0.1:1/not-used"})
+        "spring.datasource.hikari.transaction-isolation=TRANSACTION_READ_COMMITTED"})
 @AutoConfigureMockMvc(print = MockMvcPrint.NONE)
 @ActiveProfiles("test")
 class InterviewFlowTest {
