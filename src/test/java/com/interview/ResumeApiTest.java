@@ -12,6 +12,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
@@ -146,6 +147,46 @@ class ResumeApiTest {
         mvc.perform(get("/api/resumes").header(HttpHeaders.AUTHORIZATION, owner))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(0));
+    }
+
+    @ParameterizedTest(name = "{index}")
+    @ValueSource(strings = {
+            "{\"text\":\"review-test-body-fragment\"",
+            "{\"text\":{\"value\":\"review-test-body-fragment\"}}",
+            "{\"text\":[\"review-test-body-fragment\"]}",
+            "{\"text\":123}",
+            "{\"text\":true}"
+    })
+    void rejectsMalformedJsonAndNonStringTextWithoutExposingInput(String body) throws Exception {
+        String owner = signup();
+        expectSanitizedBadRequest(mvc.perform(post("/api/resumes")
+                .header(HttpHeaders.AUTHORIZATION, owner)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body)));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"/api/auth/signup", "/api/auth/login", "/api/sessions", "/api/answers"})
+    void returnsSanitizedBadRequestForMalformedJsonInExistingApis(String path) throws Exception {
+        MockHttpServletRequestBuilder request = post(path)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"value\":\"review-test-body-fragment\"");
+        if (!path.startsWith("/api/auth/")) {
+            request.header(HttpHeaders.AUTHORIZATION, signup());
+        }
+
+        expectSanitizedBadRequest(mvc.perform(request));
+    }
+
+    private void expectSanitizedBadRequest(ResultActions result) throws Exception {
+        String response = result.andExpect(status().isBadRequest())
+                .andReturn().getResponse().getContentAsString();
+        JsonNode expected = jsonMapper.readTree("""
+                {"status":400,"message":"요청 입력값이 올바르지 않습니다."}
+                """);
+        assertThat(expected.equals(jsonMapper.readTree(response)))
+                .as("use the standard error envelope without request or exception details")
+                .isTrue();
     }
 
     private String signup() throws Exception {

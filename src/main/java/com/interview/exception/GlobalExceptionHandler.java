@@ -2,6 +2,7 @@ package com.interview.exception;
 
 import lombok.Builder;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -17,7 +18,7 @@ public class GlobalExceptionHandler {
         return errorResponse(e.getErrorCode());
     }
 
-    @ExceptionHandler(MethodArgumentNotValidException.class)
+    @ExceptionHandler({MethodArgumentNotValidException.class, HttpMessageNotReadableException.class})
     public ResponseEntity<ErrorResponse> handleValidationException() {
         return errorResponse(ErrorCode.INVALID_INPUT);
     }
