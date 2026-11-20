@@ -22,7 +22,7 @@
 | `GET /api/stats` | — | 200 `{totalSessions, completedSessions, overallAverageScore, categoryStats, averageScoreScope}` |
 
 - **이력서:** 공백만으로 이루어지지 않은 문자열, 최대 20,000 유니코드 코드 포인트입니다. 원문의 공백·개행을 보존합니다. 수정 API 대신 새 이력서를 등록하며, 기존 세션은 당시 저장된 원문을 계속 참조합니다. 이력서 목록은 `id, createdAt`만 반환합니다.
-- **세션:** `id, categoryName, status, createdAt, questions, resumeId, model, criteriaVersion`을 반환합니다. 생성에는 양의 정수 `resumeId`가 필요합니다(`categoryId`로 새 면접을 만들 수 없음). 생성 결과의 각 질문은 `id, content, categoryName, position, sourceQuote, intent, evaluationCriteria, parentQuestionId`를 포함합니다. `sourceQuote`는 이력서에서 직접 인용한 부분입니다. 버전은 `resume-interview-v1`, 모델은 `openai/gpt-oss-120b`입니다.
+- **세션:** `id, categoryName, status, createdAt, questions, resumeId, model, criteriaVersion`을 반환합니다. 생성에는 양의 정수 `resumeId`가 필요합니다(`categoryId`로 새 면접을 만들 수 없음). 생성 결과의 각 질문은 `id, content, categoryName, position, sourceQuote, intent, evaluationCriteria, parentQuestionId`를 포함합니다. `sourceQuote`는 이력서에서 직접 인용한 부분입니다. 새 질문과 평가는 `resume-interview-v2` 기준과 `openai/gpt-oss-120b` 모델을 사용합니다. 이미 저장된 세션·답변의 기준 버전은 바뀌지 않습니다.
 - **답변:** 양의 정수 ID 두 개와 공백만으로 이루어지지 않은 `userAnswer`(최대 10,000 코드 포인트)를 보냅니다. 응답 필드는 `id, questionContent, userAnswer, feedback, score, createdAt, evaluation, evaluationStage, model, criteriaVersion, followUpQuestion`입니다. 신규 `feedback`과 `score`는 null입니다. `evaluation` 예시는 아래와 같습니다.
 
 ```json
@@ -115,4 +115,4 @@ env -u GROQ_API_KEY -u INTERVIEW_ENV_FILE ./mvnw -o -Dspring.profiles.active=tes
   '-DargLine=-Djdk.httpclient.redirects.retrylimit=1 -Djdk.httpclient.disableRetryConnect=true -Djdk.httpclient.enableAllMethodRetry=false' test
 ```
 
-H2와 JWT/MockMvc로 가상 이력서 등록→생성→원답→필요 시 꼬리 답변→기록 조회·완료를 검증하고, 같은 Redis 질문에 비정석이지만 타당한 답변·근거 부족·명백한 오류를 비교합니다. 실요청 사이에는 65초를 두고 오류가 발생하면 즉시 멈춥니다. 같은 승인으로 재실행하지 마세요. `target/groq-live-evidence.json`에서 `completed`와 실제 가상 응답을 확인하고, 질문의 관련성·평가의 정확성과 세 가지 답변의 구분은 사람이 검토해야 합니다. HTTP 성공이나 JSON 형식 검사만으로 평가 품질이 확인되는 것은 아닙니다.
+H2와 JWT/MockMvc로 가상 이력서 등록→생성→원답→필요 시 꼬리 답변→기록 조회·완료를 검증하고, 같은 Redis 질문에 비정석이지만 타당한 답변·근거 부족·명백한 오류를 비교합니다. 실요청 사이에는 65초를 두고 오류가 발생하면 즉시 멈춥니다. 같은 승인으로 재실행하지 마세요. `target/groq-live-evidence.json`에서 `completed`는 전체 절차 종료 여부입니다. 꼬리 답변의 실제 종합 평가는 `comprehensiveEvaluationPerformed: true`와 `followUpAnswer`에서 확인하세요. 꼬리가 없으면 절차가 끝나도 종합 평가는 검증되지 않은 것입니다. 질문의 관련성·평가의 정확성과 세 가지 답변의 구분은 사람이 검토해야 합니다. HTTP 성공이나 JSON 형식 검사만으로 평가 품질이 확인되는 것은 아닙니다.

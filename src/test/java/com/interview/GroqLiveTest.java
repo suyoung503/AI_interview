@@ -77,6 +77,7 @@ class GroqLiveTest {
     void generatesEvaluatesAndReloadsSyntheticInterviewWithControlledComparisons() throws Exception {
         GroqLiveEvidence.requireHttpGuards();
         evidence.put("completed", false);
+        evidence.put("comprehensiveEvaluationPerformed", false);
         try {
             runInterview();
             evaluateControlledSamples();
@@ -120,7 +121,9 @@ class GroqLiveTest {
             combined = answer(token, sessionId, followUp.path("id").asLong(), FOLLOW_UP_ANSWER);
             evidence.put("followUpAnswer", combined);
             assertThat(combined.path("evaluationStage").asString()).isEqualTo("COMPREHENSIVE");
+            assertThat(combined.path("evaluation").isObject()).isTrue();
             assertThat(combined.path("followUpQuestion").isNull()).isTrue();
+            evidence.put("comprehensiveEvaluationPerformed", true);
         }
 
         String detailPath = "/api/sessions/" + sessionId;

@@ -209,7 +209,7 @@ class InterviewFlowTest {
         assertThat(history.path("resume").path("createdAt").asString()).isNotBlank();
         assertThat(history.get("categoryName").isNull()).isTrue();
         assertThat(history.path("model").asString()).isEqualTo("openai/gpt-oss-120b");
-        assertThat(history.path("criteriaVersion").asString()).isEqualTo("resume-interview-v1");
+        assertThat(history.path("criteriaVersion").asString()).isEqualTo("resume-interview-v2");
         JsonNode rows = history.path("questions");
         assertThat(rows.size()).isEqualTo(7);
         List<Long> orderedIds = List.of(rootId, followUpId, secondId, pendingId,
@@ -622,7 +622,7 @@ class InterviewFlowTest {
         assertThat(stored.path("evaluation")).isEqualTo(json.readTree(evaluation));
         assertThat(stored.path("evaluationStage").asString()).isEqualTo(stage);
         assertThat(stored.path("model").asString()).isEqualTo("openai/gpt-oss-120b");
-        assertThat(stored.path("criteriaVersion").asString()).isEqualTo("resume-interview-v1");
+        assertThat(stored.path("criteriaVersion").asString()).isEqualTo("resume-interview-v2");
     }
 
     private long legacySession(long ownerResume, long category) {

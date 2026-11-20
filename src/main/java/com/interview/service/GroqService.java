@@ -118,11 +118,12 @@ public class GroqService {
     }
 
     public Evaluation evaluate(EvaluationContext context) {
-        JsonNode result = complete(EVALUATION_PROMPT, EVALUATION_FORMAT, context);
+        boolean comprehensive = context.followUpAnswer() != null;
+        JsonNode result = complete(EVALUATION_PROMPT, comprehensive ? COMPREHENSIVE_FORMAT : INITIAL_FORMAT, context);
         requireFields(result, "technicalAccuracy", "reasoning", "clarity", "strengths",
                 "improvements", "uncertainties", "summary", "followUpQuestion");
         JsonNode followUp = result.path("followUpQuestion");
-        if (!followUp.isNull() && context.followUpAnswer() != null) {
+        if (!followUp.isNull() && comprehensive) {
             throw badResponse();
         }
         return new Evaluation(

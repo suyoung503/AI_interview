@@ -120,6 +120,20 @@ class GroqServiceTest {
     }
 
     @Test
+    void requestsAnOptionalFollowUpOnlyForTheInitialEvaluation() {
+        stub.respondContent(EVALUATION_JSON);
+        service.evaluate(initialContext());
+        service.evaluate(new EvaluationContext(ORIGINAL, ORIGINAL_ANSWER, INITIAL, FOLLOW_UP, "추가 설명"));
+
+        var requests = stub.requests();
+        assertThat(requests).hasSize(2);
+        String type = "/response_format/json_schema/schema/properties/followUpQuestion/type";
+        assertThat(requests.get(0).body().at(type).values().stream().map(JsonNode::stringValue).toList())
+                .containsExactlyInAnyOrder("string", "null");
+        assertThat(requests.get(1).body().at(type)).isEqualTo(JSON.valueToTree("null"));
+    }
+
+    @Test
     void rejectsSecondFollowUpInsteadOfReturningItAsNormalEvaluation() {
         stub.respondContent(JSON.writeValueAsString(INITIAL));
 
