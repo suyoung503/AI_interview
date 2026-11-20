@@ -82,11 +82,15 @@ AI 실패는 정상 피드백이나 임의 점수로 대체하지 않으며, 실
    fi
    ```
 
-3. 로컬 편집기로 `.env`의 `MYSQL_ROOT_PASSWORD`, `JWT_SECRET`(32바이트 이상 무작위 값), `GROQ_API_KEY`를 설정합니다. `.env`는 암호화되지 않으므로 소유자만 읽도록 `chmod 600 .env`로 제한하세요. 실제 키를 채팅, 커밋, `.env.example`, 빌드 설정/이미지, 로그 또는 스크린샷에 넣지 마세요. 특히 저장소의 `src/main/resources/application.yml`은 추적되며 JAR에 포함되므로 비밀값을 넣지 마세요.
+3. 로컬 편집기로 `.env`의 `MYSQL_ROOT_PASSWORD`, `JWT_SECRET`(32바이트 이상 무작위 값), `GROQ_API_KEY`를 설정합니다. `.env`는 암호화되지 않으므로 소유자만 읽도록 `chmod 600 .env`로 제한하세요. 실제 키를 채팅, 커밋, `.env.example`, 빌드 설정/이미지, 로그 또는 스크린샷에 넣지 마세요. 저장소의 `src/main/resources/application.yml`은 추적되므로 배포 JAR에서 제외되더라도 비밀값을 넣지 마세요.
 4. `.env`는 **실행 작업 디렉터리** 기준으로 Spring이 Java properties 파일로 읽습니다. 한 줄에 `이름=값`을 쓰고 따옴표, `export`, 인라인 주석, 쉘 확장은 쓰지 마세요. 줄 전체 주석은 `#`로 시작합니다. 쉘에서 `.env`를 실행하거나 `source`하지 않습니다. 이미 내보낸 같은 이름의 환경 변수가 로컬 파일보다 우선하므로, 예를 들어 내보낸 빈 `GROQ_API_KEY`도 파일 값을 덮을 수 있습니다. 선택적으로 `INTERVIEW_ENV_FILE`에 별도 파일 경로를 지정할 수 있습니다.
 5. **데이터가 없는 새 로컬 DB에만** 첫 실행에서 `SPRING_JPA_HIBERNATE_DDL_AUTO=update SPRING_SQL_INIT_MODE=always ./mvnw spring-boot:run`으로 테이블과 기존 카테고리 시드를 준비합니다. 이후에는 예제의 기본값(`validate`, SQL init `never`)으로 프로젝트 루트에서 `./mvnw spring-boot:run`을 실행합니다. **기존 데이터가 있다면 첫 실행 옵션을 사용하지 말고** 아래 마이그레이션 절차를 먼저 따르세요.
 
-Docker의 경우 `./mvnw -DskipTests package`로 JAR를 만들고 Compose가 루트 `.env`에서 값을 런타임 환경으로 전달하게 합니다. `.env*`는 Docker 빌드 컨텍스트에서 빠지지만 Dockerfile에 필요한 `target/interview-0.0.1-SNAPSHOT.jar`는 유지합니다. 새 빈 MySQL 볼륨의 첫 시작에만 `SPRING_JPA_HIBERNATE_DDL_AUTO=update SPRING_SQL_INIT_MODE=always docker compose up --build`를 사용하세요. 기존 볼륨은 마이그레이션을 먼저 검증한 다음 기본 `docker compose up --build`를 사용합니다. 볼륨을 삭제하는 `down -v`는 기록을 보존해야 할 때 사용하지 마세요.
+### 배포 JAR와 Docker
+
+`./mvnw spring-boot:run`은 기존 클래스패스의 `src/main/resources/application.yml`을 계속 사용할 수 있지만, `./mvnw -DskipTests package`로 만든 배포 JAR에는 해당 파일을 넣지 않습니다. `java -jar`로 실행할 때는 런타임 환경 변수(`SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD`, `JWT_SECRET`, `JWT_EXPIRATION`[밀리초], `GROQ_API_KEY` 및 필요한 스키마·초기화 설정)를 주입하거나, 예제를 바탕으로 JAR 밖에 설정을 준비해 `--spring.config.additional-location=file:/absolute/path/application.yml`로 지정하세요. JAR도 작업 디렉터리의 `.env`를 읽을 수 있지만, 배포할 파일에는 비밀을 넣지 않고 실행 환경에서만 제공하세요.
+
+Docker 빌드 컨텍스트에는 Dockerfile과 새로 패키징한 `target/interview-0.0.1-SNAPSHOT.jar`만 허용됩니다. Compose는 루트 `.env` 값을 이미지에 복사하지 않고 컨테이너 실행 시 환경으로 전달합니다. 새 빈 MySQL 볼륨의 첫 시작에만 `SPRING_JPA_HIBERNATE_DDL_AUTO=update SPRING_SQL_INIT_MODE=always docker compose up --build`를 사용하세요. 기존 볼륨은 마이그레이션을 먼저 검증한 다음 기본 `docker compose up --build`를 사용합니다. 볼륨을 삭제하는 `down -v`는 기록을 보존해야 할 때 사용하지 마세요.
 
 ### 기존 기록과 MySQL 마이그레이션
 
