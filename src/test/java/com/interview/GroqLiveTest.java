@@ -2,6 +2,7 @@ package com.interview;
 
 import com.interview.dto.InterviewAiModels.EvaluationContext;
 import com.interview.dto.InterviewAiModels.GeneratedQuestion;
+import com.interview.exception.CustomException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,7 +31,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @EnabledIfSystemProperty(named = "groq.live.confirmed", matches = "true")
 @SpringBootTest(properties = {
@@ -44,6 +44,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class GroqLiveTest {
 
     private static final String REDIS_EXPERIENCE = "Spring Boot로 만든 가상 도서관 서비스에서 Redis 조회 캐시의 TTL을 설계했습니다.";
+    static final String FOLLOW_UP_ANSWER =
+            "도서 목록은 잠깐 오래된 정보여도 되지만 대출 재고는 정확해야 합니다. 조회 캐시와 대출 갱신을 분리했습니다.";
     private static final String RESUME = REDIS_EXPERIENCE + "\n" + """
             재고가 지연돼도 되는 도서 목록만 캐시하고, 최종 대출은 MySQL 트랜잭션으로 처리했습니다.
             동시 요청에서 중복 대출을 막으려고 조건부 갱신을 사용했습니다.
@@ -69,19 +71,19 @@ class GroqLiveTest {
     @Autowired GroqLiveClient client;
     @Autowired MockMvc mvc;
     @Autowired JsonMapper json;
+    private final Map<String, Object> evidence = new LinkedHashMap<>();
 
     @Test
     void generatesEvaluatesAndReloadsSyntheticInterviewWithControlledComparisons() throws Exception {
-        assertThat(System.getProperty("jdk.httpclient.redirects.retrylimit"))
-                .as("README의 JVM 옵션으로 HTTP 재시도를 금지합니다.").isEqualTo("1");
-        assertTrue(System.getProperty("jdk.httpclient.HttpClient.log", "").isEmpty(),
-                "HTTP 요청 로그를 비활성화해야 합니다.");
-        var evidence = new LinkedHashMap<String, Object>();
+        GroqLiveEvidence.requireHttpGuards();
         evidence.put("completed", false);
         try {
-            runInterview(evidence);
-            evaluateControlledSamples(evidence);
+            runInterview();
+            evaluateControlledSamples();
             evidence.put("completed", true);
+        } catch (CustomException e) {
+            evidence.put("error", GroqLiveEvidence.failure(e.getErrorCode().getStatus().value(), e));
+            throw new AssertionError("Groq 평가 실패: " + e.getErrorCode());
         } finally {
             evidence.put("attempts", client.attempts());
             Files.writeString(Path.of("target", "groq-live-evidence.json"),
@@ -89,9 +91,9 @@ class GroqLiveTest {
         }
     }
 
-    private void runInterview(Map<String, Object> evidence) throws Exception {
+    private void runInterview() throws Exception {
         var credentials = Map.of("email", "groq-live@example.test", "password", "synthetic-test-password");
-        send("", "/api/auth/signup", credentials).andExpect(status().isCreated());
+        body(send("", "/api/auth/signup", credentials), 201);
         String token = "Bearer " + body(send("", "/api/auth/login", credentials), 200).path("token").asString();
         JsonNode resume = body(send(token, "/api/resumes", Map.of("text", RESUME)), 201);
         JsonNode session = body(send(token, "/api/sessions", Map.of("resumeId", resume.path("id").asLong())), 201);
@@ -115,8 +117,7 @@ class GroqLiveTest {
         JsonNode followUp = original.path("followUpQuestion");
         JsonNode combined = null;
         if (followUp.isObject()) {
-            combined = answer(token, sessionId, followUp.path("id").asLong(),
-                    "도서 목록은 잠깐 오래된 정보여도 되지만 대출 재고는 정확해야 합니다. 조회 캐시와 대출 갱신을 분리했습니다.");
+            combined = answer(token, sessionId, followUp.path("id").asLong(), FOLLOW_UP_ANSWER);
             evidence.put("followUpAnswer", combined);
             assertThat(combined.path("evaluationStage").asString()).isEqualTo("COMPREHENSIVE");
             assertThat(combined.path("followUpQuestion").isNull()).isTrue();
@@ -134,7 +135,7 @@ class GroqLiveTest {
             assertStoredAnswer(history.get(1), combined);
         }
 
-        mvc.perform(patch(detailPath + "/done").header("Authorization", token)).andExpect(status().isOk());
+        body(mvc.perform(patch(detailPath + "/done").header("Authorization", token)), 200);
         JsonNode completed = body(mvc.perform(get(detailPath).header("Authorization", token)), 200);
         assertThat(completed.path("status").asString()).isEqualTo("DONE");
         assertThat(completed.path("questions")).isEqualTo(history);
@@ -149,7 +150,7 @@ class GroqLiveTest {
         }
     }
 
-    private void evaluateControlledSamples(Map<String, Object> evidence) {
+    private void evaluateControlledSamples() {
         evidence.put("controlledQuestion", REDIS_QUESTION);
         var evaluations = new LinkedHashMap<String, Object>();
         evidence.put("controlledEvaluations", evaluations);
@@ -178,6 +179,6 @@ class GroqLiveTest {
     }
 
     private JsonNode body(ResultActions result, int expectedStatus) throws Exception {
-        return json.readTree(result.andExpect(status().is(expectedStatus)).andReturn().getResponse().getContentAsByteArray());
+        return GroqLiveEvidence.body(json, result, expectedStatus, evidence);
     }
 }
