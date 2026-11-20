@@ -32,8 +32,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class GroqFollowUpDiagnosticTest {
 
     private static final Path SYNTHETIC_EVIDENCE = Path.of(".superpowers", "sdd",
-            "2026-11-20-resume-interview-coach", "task-6-groq-live-evidence.json");
-    private static final String SYNTHETIC_SHA256 = "3d9302ff170a2eb271bdf0443b6543680132110d119ddc0900bef45b47699a8c";
+            "2026-11-20-resume-interview-coach", "task-7-final-groq-live-evidence.json");
+    private static final String SYNTHETIC_SHA256 = "7141dd0a3ade7228b41d3d624136cd987a810dc9620bb59d7f823c5b82dd57c2";
 
     @Configuration(proxyBeanMethods = false)
     static class Config {}
@@ -41,7 +41,7 @@ class GroqFollowUpDiagnosticTest {
     @Value("${GROQ_API_KEY:}") String key;
 
     @Test
-    void diagnosesOneDirectCallForTheOriginalSyntheticFollowUp() throws Exception {
+    void diagnosesOneDirectCallForTheV2SyntheticFollowUp() throws Exception {
         GroqLiveEvidence.requireHttpGuards();
         var json = JsonMapper.builder().build();
         var context = restoreSyntheticContext(json);
@@ -58,7 +58,7 @@ class GroqFollowUpDiagnosticTest {
             evidence.put("error", failure);
             throw new AssertionError("Groq 꼬리 평가 실패: " + failure.errorCode());
         } finally {
-            Files.writeString(Path.of("target", "groq-followup-diagnostic-evidence.json"),
+            Files.writeString(Path.of("target", "groq-upstream-diagnostic-evidence.json"),
                     json.writerWithDefaultPrettyPrinter().writeValueAsString(evidence));
         }
     }
@@ -67,10 +67,13 @@ class GroqFollowUpDiagnosticTest {
         byte[] artifact = Files.readAllBytes(SYNTHETIC_EVIDENCE);
         // Prevent accidentally sending an edited fixture or a production interview.
         String sha256 = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(artifact));
-        assertEquals(SYNTHETIC_SHA256, sha256, "승인한 최초 가상 실검증 결과와 같은 파일이어야 합니다.");
+        assertEquals(SYNTHETIC_SHA256, sha256, "승인한 v2 가상 실검증 결과와 같은 파일이어야 합니다.");
         var saved = json.readTree(artifact);
-        var root = saved.path("generatedSession").path("questions").get(0);
+        var session = saved.path("generatedSession");
         var initial = saved.path("initialAnswer");
+        assertEquals("resume-interview-v2", session.path("criteriaVersion").asString());
+        assertEquals("resume-interview-v2", initial.path("criteriaVersion").asString());
+        var root = session.path("questions").get(0);
         var criteria = new ArrayList<String>();
         root.path("evaluationCriteria").forEach(item -> criteria.add(item.asString()));
         return new EvaluationContext(new GeneratedQuestion(root.path("content").asString(),
