@@ -12,6 +12,7 @@ public class StatsResponse {
     private final int completedSessions;
     private final double overallAverageScore;
     private final List<CategoryStat> categoryStats;
+    private final String averageScoreScope = "SCORED_LEGACY_ANSWERS";
 
     @Getter
     @AllArgsConstructor

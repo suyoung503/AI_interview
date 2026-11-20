@@ -36,9 +36,9 @@ public class StatsService {
                 .filter(s -> s.getStatus() == Session.SessionStatus.DONE)
                 .count();
 
-        // 점수가 있는 답변만 통계에 포함
+        // 기존 수치 평균에는 점수가 있는 구형 답변만 포함한다.
         List<Answer> answers = answerRepository.findBySession_User(user).stream()
-                .filter(a -> a.getScore() != null)
+                .filter(a -> a.getScore() != null && a.getSession().getResume() == null)
                 .toList();
 
         double overallAverage = answers.stream()

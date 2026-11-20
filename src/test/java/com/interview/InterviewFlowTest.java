@@ -10,6 +10,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -36,8 +37,11 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.nullValue;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest(properties = {"spring.datasource.url=jdbc:h2:mem:flow;MODE=MySQL",
@@ -148,6 +152,160 @@ class InterviewFlowTest {
         answer(owner, sid, qid, FIRST).andExpect(status().isConflict());
         answer(owner, sid, child, "재제출").andExpect(status().isConflict());
         assertThat(stub.requests()).hasSize(calls);
+    }
+
+    @Test
+    void reloadsOwnedHistoryFromLoginThroughCompletion() throws Exception {
+        var credentials = Map.of("email", UUID.randomUUID() + "@example.test", "password", "test-password");
+        created(send("", "/api/auth/signup", credentials));
+        String token = "Bearer " + ok(send("", "/api/auth/login", credentials)).path("token").asString();
+        String snapshot = "  " + SOURCE + "\n아키텍처를 개선했습니다.\n";
+        long resumeId = created(send(token, "/api/resumes", Map.of("text", snapshot))).path("id").asLong();
+        serveFiveRoots();
+        JsonNode session = created(send(token, "/api/sessions", Map.of("resumeId", resumeId)));
+        long sid = session.path("id").asLong();
+        long rootId = firstId(session);
+        long secondId = session.path("questions").get(1).path("id").asLong();
+        String original = "  " + FIRST + "\n";
+        stub.respondContent(INITIAL);
+        long followUpId = created(answer(token, sid, rootId, original))
+                .path("followUpQuestion").path("id").asLong();
+
+        JsonNode pending = ok(detail(token, sid)).path("questions");
+        assertThat(pending.get(1).path("id").asLong()).isEqualTo(followUpId);
+        assertThat(pending.get(1).get("answers").isArray()).isTrue();
+        assertThat(pending.get(1).get("answers").size()).isZero();
+
+        String additional = "  성능 기준과 요구사항\n";
+        stub.respondContent(FINAL);
+        created(answer(token, sid, followUpId, additional));
+        // Leave a different follow-up pending when the interview ends.
+        stub.respondContent(INITIAL);
+        long pendingId = created(answer(token, sid, secondId, FIRST))
+                .path("followUpQuestion").path("id").asLong();
+        int calls = stub.requests().size();
+
+        JsonNode history = ok(detail(token, sid));
+        assertThat(history.path("status").asString()).isEqualTo("IN_PROGRESS");
+        assertThat(history.path("resume").path("id").asLong()).isEqualTo(resumeId);
+        assertThat(history.path("resume").path("text").asString()).isEqualTo(snapshot);
+        assertThat(history.path("resume").path("createdAt").asString()).isNotBlank();
+        assertThat(history.get("categoryName").isNull()).isTrue();
+        assertThat(history.path("model").asString()).isEqualTo("openai/gpt-oss-120b");
+        assertThat(history.path("criteriaVersion").asString()).isEqualTo("resume-interview-v1");
+        JsonNode rows = history.path("questions");
+        assertThat(rows.size()).isEqualTo(7);
+        List<Long> orderedIds = List.of(rootId, followUpId, secondId, pendingId,
+                session.path("questions").get(2).path("id").asLong(),
+                session.path("questions").get(3).path("id").asLong(),
+                session.path("questions").get(4).path("id").asLong());
+        for (int i = 0; i < rows.size(); i++) {
+            assertThat(rows.get(i).path("id").asLong()).isEqualTo(orderedIds.get(i));
+            assertThat(rows.get(i).path("sourceQuote").asString()).isEqualTo(SOURCE);
+            assertThat(rows.get(i).path("intent").asString()).isEqualTo("이유 확인");
+            assertThat(rows.get(i).path("evaluationCriteria").get(0).asString()).isEqualTo("근거");
+        }
+        assertThat(rows.get(0).path("position").asInt()).isEqualTo(1);
+        assertThat(rows.get(0).get("parentQuestionId").isNull()).isTrue();
+        assertThat(rows.get(1).path("position").asInt()).isEqualTo(1);
+        assertThat(rows.get(1).path("parentQuestionId").asLong()).isEqualTo(rootId);
+        assertThat(rows.get(1).path("content").asString()).isEqualTo(FOLLOW);
+        assertThat(rows.get(3).path("parentQuestionId").asLong()).isEqualTo(secondId);
+        assertThat(rows.get(3).get("answers").isArray()).isTrue();
+        assertThat(rows.get(3).get("answers").size()).isZero();
+        assertThat(rows.get(4).get("answers").isArray()).isTrue();
+        assertThat(rows.get(4).get("answers").size()).isZero();
+        assertStoredAnswer(rows.get(0), original, INITIAL, "INITIAL");
+        assertThat(rows.get(0).path("answers").get(0).path("followUpQuestion").path("id").asLong())
+                .isEqualTo(followUpId);
+        assertStoredAnswer(rows.get(1), additional, FINAL, "COMPREHENSIVE");
+
+        done(token, sid).andExpect(status().isOk());
+        JsonNode completed = ok(detail(token, sid));
+        assertThat(completed.path("status").asString()).isEqualTo("DONE");
+        assertThat(completed.path("resume")).isEqualTo(history.path("resume"));
+        assertThat(completed.path("questions")).isEqualTo(rows);
+        answer(token, sid, pendingId, "완료 뒤 제출").andExpect(status().isBadRequest());
+        assertThat(stub.requests()).hasSize(calls);
+    }
+
+    @Test
+    void doesNotDiscloseAnotherUsersSessionOrResumeSnapshot() throws Exception {
+        long sid = start().path("id").asLong();
+        String other = signup();
+        mvc.perform(get("/api/sessions/{id}", sid)).andExpect(status().isForbidden());
+        detail(other, sid).andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("세션을 찾을 수 없습니다."))
+                .andExpect(jsonPath("$.resume").doesNotHaveJsonPath());
+        detail(other, Long.MAX_VALUE).andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("세션을 찾을 수 없습니다."));
+        mvc.perform(get("/api/sessions").header("Authorization", other))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"0", "-1", "not-a-session", "1.5", "9223372036854775808"})
+    void returnsSafeBadRequestForInvalidDetailId(String id) throws Exception {
+        detail(owner, id).andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.message").value("요청 입력값이 올바르지 않습니다."));
+    }
+
+    @Test
+    void listsMixedSessionsWithoutResumeTextAndKeepsLegacyDuplicatesAndAverages() throws Exception {
+        String category = "기존 주제 " + UUID.randomUUID();
+        db.update("insert into categories (name) values (?)", category);
+        long categoryId = db.queryForObject("select id from categories where name = ?", Long.class, category);
+        db.update("insert into questions (category_id, content) values (?, ?)", categoryId, "기존 고정 질문");
+        long fixedId = db.queryForObject("select id from questions where category_id = ?", Long.class, categoryId);
+        long legacy = legacySession(resume, categoryId);
+        legacyAnswer(legacy, fixedId, "기존 답변 A", 7);
+        legacyAnswer(legacy, fixedId, "기존 답변 B", 9);
+
+        String other = signup();
+        long otherResume = created(send(other, "/api/resumes", Map.of("text", SOURCE))).path("id").asLong();
+        legacyAnswer(legacySession(otherResume, categoryId), fixedId, "타인 답변", 100);
+
+        JsonNode current = start();
+        long currentId = current.path("id").asLong();
+        stub.respondContent(FINAL);
+        created(answer(owner, currentId, firstId(current), FIRST));
+        mvc.perform(get("/api/stats").header("Authorization", owner))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalSessions").value(2))
+                .andExpect(jsonPath("$.completedSessions").value(1))
+                .andExpect(jsonPath("$.overallAverageScore").value(8.0))
+                .andExpect(jsonPath("$.categoryStats.length()").value(1))
+                .andExpect(jsonPath("$.categoryStats[0].categoryName").value(category))
+                .andExpect(jsonPath("$.categoryStats[0].averageScore").value(8.0))
+                .andExpect(jsonPath("$.categoryStats[0].answerCount").value(2))
+                .andExpect(jsonPath("$.averageScoreScope").value("SCORED_LEGACY_ANSWERS"));
+
+        mvc.perform(get("/api/sessions").header("Authorization", owner))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].id").value(currentId))
+                .andExpect(jsonPath("$[0].resumeId").value(resume))
+                .andExpect(jsonPath("$[0].resume.text").doesNotHaveJsonPath())
+                .andExpect(jsonPath("$[1].id").value(legacy))
+                .andExpect(jsonPath("$[1].categoryName").value(category));
+        detail(owner, legacy).andExpect(status().isOk())
+                .andExpect(jsonPath("$.resumeId").value(nullValue()))
+                .andExpect(jsonPath("$.questions.length()").value(1))
+                .andExpect(jsonPath("$.questions[0].id").value(fixedId))
+                .andExpect(jsonPath("$.questions[0].content").value("기존 고정 질문"))
+                .andExpect(jsonPath("$.questions[0].categoryName").value(category))
+                .andExpect(jsonPath("$.questions[0].answers.length()").value(2))
+                .andExpect(jsonPath("$.questions[0].answers[0].userAnswer").value("기존 답변 A"))
+                .andExpect(jsonPath("$.questions[0].answers[0].score").value(7))
+                .andExpect(jsonPath("$.questions[0].answers[1].userAnswer").value("기존 답변 B"))
+                .andExpect(jsonPath("$.questions[0].answers[1].score").value(9))
+                .andExpect(jsonPath("$.questions[0].answers[1].feedback").value("기존 평가"))
+                .andExpect(jsonPath("$.questions[0].answers[1].evaluation").value(nullValue()));
+        detail(owner, currentId).andExpect(status().isOk())
+                .andExpect(jsonPath("$.questions[0].categoryName").value(nullValue()))
+                .andExpect(jsonPath("$.questions[0].answers[0].feedback").value(nullValue()))
+                .andExpect(jsonPath("$.questions[0].answers[0].score").value(nullValue()));
     }
 
     @Test
@@ -391,6 +549,37 @@ class InterviewFlowTest {
 
     private JsonNode created(ResultActions result) throws Exception {
         return json.readTree(result.andExpect(status().isCreated()).andReturn().getResponse().getContentAsByteArray());
+    }
+
+    private JsonNode ok(ResultActions result) throws Exception {
+        return json.readTree(result.andExpect(status().isOk()).andReturn().getResponse().getContentAsByteArray());
+    }
+
+    private void assertStoredAnswer(JsonNode question, String text, String evaluation, String stage) {
+        assertThat(question.path("answers").size()).isEqualTo(1);
+        JsonNode stored = question.path("answers").get(0);
+        assertThat(stored.path("userAnswer").asString()).isEqualTo(text);
+        assertThat(stored.path("evaluation")).isEqualTo(json.readTree(evaluation));
+        assertThat(stored.path("evaluationStage").asString()).isEqualTo(stage);
+        assertThat(stored.path("model").asString()).isEqualTo("openai/gpt-oss-120b");
+        assertThat(stored.path("criteriaVersion").asString()).isEqualTo("resume-interview-v1");
+    }
+
+    private long legacySession(long ownerResume, long category) {
+        long user = db.queryForObject("select user_id from resumes where id = ?", Long.class, ownerResume);
+        db.update("insert into sessions (user_id, category_id, status, created_at) values (?, ?, 'DONE', current_timestamp)",
+                user, category);
+        return db.queryForObject("select id from sessions where user_id = ? and category_id = ?",
+                Long.class, user, category);
+    }
+
+    private void legacyAnswer(long session, long question, String text, int score) {
+        db.update("insert into answers (session_id, question_id, user_answer, feedback, score, created_at) "
+                        + "values (?, ?, ?, '기존 평가', ?, current_timestamp)", session, question, text, score);
+    }
+
+    private ResultActions detail(String token, Object id) throws Exception {
+        return mvc.perform(get("/api/sessions/{id}", id).header("Authorization", token));
     }
 
     private ResultActions done(String token, long session) throws Exception {

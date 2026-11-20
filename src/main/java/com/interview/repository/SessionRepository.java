@@ -15,5 +15,7 @@ public interface SessionRepository extends JpaRepository<Session, Long> {
     @Query("select s from Session s where s.id = :id")
     Optional<Session> lockById(@Param("id") Long id);
 
+    Optional<Session> findByIdAndUserEmail(Long id, String email);
+
     List<Session> findByUserOrderByCreatedAtDesc(User user);
 }

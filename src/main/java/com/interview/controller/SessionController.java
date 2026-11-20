@@ -35,6 +35,13 @@ public class SessionController {
         return ResponseEntity.ok(sessionService.getMySessions(userDetails.getUsername()));
     }
 
+    @GetMapping("/{id}")
+    public ResponseEntity<SessionResponse> getSession(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable @Positive Long id) {
+        return ResponseEntity.ok(sessionService.getSession(userDetails.getUsername(), id));
+    }
+
     @PatchMapping("/{id}/done")
     public ResponseEntity<SessionResponse> endSession(
             @AuthenticationPrincipal UserDetails userDetails,
