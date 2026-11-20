@@ -24,3 +24,6 @@ claude:
   api-key: your_claude_api_key
   api-url: https://api.anthropic.com/v1/messages
   model: claude-haiku-4-5-20251001
+
+groq:
+  api-key: ${GROQ_API_KEY:}
