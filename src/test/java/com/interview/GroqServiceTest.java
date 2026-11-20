@@ -246,14 +246,15 @@ class GroqServiceTest {
                 () -> assertFailure(504, () -> impatient.evaluate(initialContext())));
     }
 
-    @Test
-    void doesNotWaitForSlowErrorBody() {
-        stub.dripBody(429, "provider-sensitive-body", Duration.ofSeconds(2), 1);
+    @ParameterizedTest
+    @ValueSource(ints = {429, 503})
+    void doesNotWaitForSlowErrorBody(int upstreamStatus) {
+        stub.dripBody(upstreamStatus, "provider-sensitive-body", Duration.ofSeconds(2), 1);
         GroqService impatient = new GroqService(API_KEY, stub.endpoint(), Duration.ofSeconds(1),
                 Duration.ofSeconds(3));
 
         assertTimeoutPreemptively(Duration.ofSeconds(1),
-                () -> assertFailure(429, () -> impatient.evaluate(initialContext())));
+                () -> assertFailure(upstreamStatus == 429 ? 429 : 502, () -> impatient.evaluate(initialContext())));
     }
 
     @Test

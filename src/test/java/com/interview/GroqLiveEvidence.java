@@ -1,5 +1,7 @@
 package com.interview;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.interview.exception.AiProviderException;
 import com.interview.exception.CustomException;
 import org.springframework.test.web.servlet.ResultActions;
 import tools.jackson.databind.JsonNode;
@@ -36,7 +38,8 @@ final class GroqLiveEvidence {
                 .filter(frame -> frame.getClassName().startsWith("com.interview."))
                 .map(frame -> new Frame(frame.getClassName(), frame.getMethodName(), frame.getLineNumber()))
                 .toList();
-        return new Failure(status, code, frames);
+        Integer upstreamStatus = error instanceof AiProviderException provider ? provider.getUpstreamStatus() : null;
+        return new Failure(status, code, frames, upstreamStatus);
     }
 
     static void requireHttpGuards() {
@@ -46,6 +49,7 @@ final class GroqLiveEvidence {
                 "HTTP 요청 로그를 비활성화해야 합니다.");
     }
 
-    record Failure(int status, String errorCode, List<Frame> stackFrames) {}
+    record Failure(int status, String errorCode, List<Frame> stackFrames,
+                   @JsonInclude(JsonInclude.Include.NON_NULL) Integer upstreamStatus) {}
     record Frame(String className, String methodName, int lineNumber) {}
 }

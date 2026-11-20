@@ -6,6 +6,7 @@ import com.interview.dto.InterviewAiModels.EvaluationContext;
 import com.interview.dto.InterviewAiModels.GeneratedQuestion;
 import com.interview.dto.InterviewAiModels.Reasoning;
 import com.interview.dto.InterviewAiModels.TechnicalAccuracy;
+import com.interview.exception.AiProviderException;
 import com.interview.exception.CustomException;
 import com.interview.exception.ErrorCode;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -158,11 +159,12 @@ public class GroqService {
                     .exchange((request, response) -> {
                         // 먼저 닫아야 RestClient의 정리 단계에서 오류/과다 본문을 끝까지 읽지 않는다.
                         try (InputStream stream = response.getBody()) {
-                            if (response.getStatusCode().value() == 429) {
+                            var status = response.getStatusCode();
+                            if (status.value() == 429) {
                                 throw new CustomException(ErrorCode.AI_RATE_LIMITED);
                             }
-                            if (!response.getStatusCode().is2xxSuccessful()) {
-                                throw badResponse();
+                            if (!status.is2xxSuccessful()) {
+                                throw new AiProviderException(status.value());
                             }
                             return stream.readNBytes(MAX_RESPONSE_BYTES + 1);
                         }
