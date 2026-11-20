@@ -3,6 +3,8 @@ package com.interview.controller;
 import com.interview.dto.SessionCreateRequest;
 import com.interview.dto.SessionResponse;
 import com.interview.service.SessionService;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -22,7 +24,7 @@ public class SessionController {
     @PostMapping
     public ResponseEntity<SessionResponse> createSession(
             @AuthenticationPrincipal UserDetails userDetails,
-            @RequestBody SessionCreateRequest request) {
+            @Valid @RequestBody SessionCreateRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(sessionService.createSession(userDetails.getUsername(), request));
     }
@@ -36,7 +38,7 @@ public class SessionController {
     @PatchMapping("/{id}/done")
     public ResponseEntity<SessionResponse> endSession(
             @AuthenticationPrincipal UserDetails userDetails,
-            @PathVariable Long id) {
+            @PathVariable @Positive Long id) {
         return ResponseEntity.ok(sessionService.endSession(userDetails.getUsername(), id));
     }
 }

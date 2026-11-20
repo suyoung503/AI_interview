@@ -14,6 +14,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -52,6 +54,16 @@ public final class GroqStub implements AutoCloseable {
         response = new Response(status, body, Duration.ZERO, false, 1);
     }
 
+    private volatile Gate gate;
+
+    public void holdResponses(CountDownLatch arrivals, CountDownLatch release) {
+        gate = arrivals == null ? null : new Gate(arrivals, release);
+    }
+
+    public void disconnect() {
+        respond(0, "");
+    }
+
     public void respondSlowly(String content, Duration delay, boolean sendHeadersFirst) {
         response = new Response(200, wrapContent(content, "stop", null), delay, sendHeadersFirst, 1);
     }
@@ -81,6 +93,16 @@ public final class GroqStub implements AutoCloseable {
                     exchange.getRequestHeaders().getFirst("Content-Type"),
                     JSON.readTree(exchange.getRequestBody().readAllBytes())));
             Response current = response;
+            Gate currentGate = gate;
+            if (currentGate != null) {
+                currentGate.arrivals().countDown();
+                if (!currentGate.release().await(10, TimeUnit.SECONDS)) {
+                    return;
+                }
+            }
+            if (current.status() == 0) {
+                return;
+            }
             byte[] body = current.body().getBytes(StandardCharsets.UTF_8);
             exchange.getResponseHeaders().set("Content-Type", "application/json");
             if (current.status() == 307) {
@@ -111,5 +133,6 @@ public final class GroqStub implements AutoCloseable {
     }
 
     public record Request(String method, String path, String authorization, String contentType, JsonNode body) {}
+    private record Gate(CountDownLatch arrivals, CountDownLatch release) {}
     private record Response(int status, String body, Duration delay, boolean sendHeadersFirst, int chunks) {}
 }

@@ -21,6 +21,7 @@ public enum ErrorCode {
 
     // Business
     INVALID_INPUT(HttpStatus.BAD_REQUEST, "요청 입력값이 올바르지 않습니다."),
+    ANSWER_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 답변한 질문입니다."),
     SESSION_ALREADY_DONE(HttpStatus.BAD_REQUEST, "이미 완료된 세션입니다."),
     UNAUTHORIZED_ACCESS(HttpStatus.FORBIDDEN, "접근 권한이 없습니다."),
 

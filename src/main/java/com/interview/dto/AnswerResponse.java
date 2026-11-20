@@ -1,6 +1,8 @@
 package com.interview.dto;
 
+import com.interview.dto.InterviewAiModels.Evaluation;
 import com.interview.entity.Answer;
+import com.interview.entity.Question;
 import lombok.Getter;
 
 import java.time.LocalDateTime;
@@ -14,7 +16,12 @@ public class AnswerResponse {
     private final Integer score;
     private final LocalDateTime createdAt;
 
-    public AnswerResponse(Answer answer) {
+    private final Evaluation evaluation;
+    private final QuestionResponse followUpQuestion;
+
+    public AnswerResponse(Answer answer, Question followUp) {
+        this.evaluation = answer.getEvaluation();
+        this.followUpQuestion = followUp == null ? null : new QuestionResponse(followUp);
         this.id = answer.getId();
         this.questionContent = answer.getQuestion().getContent();
         this.userAnswer = answer.getUserAnswer();

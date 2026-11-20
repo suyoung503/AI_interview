@@ -3,6 +3,7 @@ package com.interview.controller;
 import com.interview.dto.AnswerResponse;
 import com.interview.dto.AnswerSubmitRequest;
 import com.interview.service.AnswerService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -23,7 +24,7 @@ public class AnswerController {
     @PostMapping
     public ResponseEntity<AnswerResponse> submitAnswer(
             @AuthenticationPrincipal UserDetails userDetails,
-            @RequestBody AnswerSubmitRequest request) {
+            @Valid @RequestBody AnswerSubmitRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(answerService.submitAnswer(userDetails.getUsername(), request));
     }

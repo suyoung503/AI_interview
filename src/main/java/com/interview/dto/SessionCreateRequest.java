@@ -1,10 +1,19 @@
 package com.interview.dto;
 
+import com.fasterxml.jackson.annotation.JsonSetter;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import lombok.Getter;
-import lombok.NoArgsConstructor;
+import tools.jackson.databind.JsonNode;
 
 @Getter
-@NoArgsConstructor
 public class SessionCreateRequest {
-    private Long categoryId;
+
+    @NotNull @Positive
+    private Long resumeId;
+
+    @JsonSetter("resumeId")
+    private void setResumeId(JsonNode value) {
+        resumeId = RequestIds.integer(value);
+    }
 }
