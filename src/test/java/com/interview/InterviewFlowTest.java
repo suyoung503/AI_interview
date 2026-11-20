@@ -6,12 +6,15 @@ import com.interview.repository.SessionRepository;
 import com.interview.service.GroqService;
 import com.interview.support.GroqStub;
 import com.zaxxer.hikari.HikariDataSource;
+import org.hibernate.cfg.AvailableSettings;
+import org.hibernate.resource.jdbc.spi.StatementInspector;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.hibernate.autoconfigure.HibernatePropertiesCustomizer;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -45,6 +48,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest(properties = {"spring.datasource.url=jdbc:h2:mem:flow;MODE=MySQL",
+        "spring.datasource.hikari.transaction-isolation=TRANSACTION_READ_COMMITTED",
         "claude.api-url=http://127.0.0.1:1/not-used"})
 @AutoConfigureMockMvc(print = MockMvcPrint.NONE)
 @ActiveProfiles("test")
@@ -70,6 +74,19 @@ class InterviewFlowTest {
         @Bean @Primary GroqService loopbackClient(GroqStub stub) {
             return new GroqService("test-only", stub.endpoint(), Duration.ofSeconds(1), Duration.ofSeconds(3));
         }
+        @Bean ThreadLocal<Runnable> beforeHistoryQuestionSelect() {
+            return new ThreadLocal<>();
+        }
+        @Bean HibernatePropertiesCustomizer historyReadGate(ThreadLocal<Runnable> beforeHistoryQuestionSelect) {
+            return properties -> properties.put(AvailableSettings.STATEMENT_INSPECTOR, (StatementInspector) sql -> {
+                var gate = beforeHistoryQuestionSelect.get();
+                if (gate != null && sql.replaceAll("\\s+", " ").contains(" from questions ")) {
+                    beforeHistoryQuestionSelect.remove();
+                    gate.run();
+                }
+                return sql;
+            });
+        }
     }
 
     @Autowired MockMvc mvc;
@@ -80,6 +97,7 @@ class InterviewFlowTest {
     @Autowired SessionRepository sessions;
     @Autowired QuestionRepository questions;
     @Autowired AnswerRepository answers;
+    @Autowired ThreadLocal<Runnable> beforeHistoryQuestionSelect;
     String owner;
     long resume;
 
@@ -227,6 +245,49 @@ class InterviewFlowTest {
         assertThat(completed.path("questions")).isEqualTo(rows);
         answer(token, sid, pendingId, "완료 뒤 제출").andExpect(status().isBadRequest());
         assertThat(stub.requests()).hasSize(calls);
+    }
+
+    @Test
+    void readsTheRootAnswerAndFollowUpFromTheSameCommittedState() throws Exception {
+        JsonNode session = start();
+        long sid = session.path("id").asLong(), rootId = firstId(session);
+        stub.respondContent(INITIAL);
+        var beforeQuestions = new CountDownLatch(1);
+        var answerCommitted = new CountDownLatch(1);
+        var reader = Executors.newSingleThreadExecutor();
+        try {
+            var pendingRead = reader.submit(() -> {
+                beforeHistoryQuestionSelect.set(() -> {
+                    beforeQuestions.countDown();
+                    try {
+                        assertThat(answerCommitted.await(5, TimeUnit.SECONDS)).isTrue();
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        throw new AssertionError(e);
+                    }
+                });
+                try {
+                    return ok(detail(owner, sid));
+                } finally {
+                    beforeHistoryQuestionSelect.remove();
+                }
+            });
+            assertThat(beforeQuestions.await(5, TimeUnit.SECONDS)).isTrue();
+            long followUpId = created(answer(owner, sid, rootId, FIRST))
+                    .path("followUpQuestion").path("id").asLong();
+            answerCommitted.countDown();
+
+            JsonNode rows = pendingRead.get(5, TimeUnit.SECONDS).path("questions");
+            assertThat(rows.get(1).path("id").asLong()).isEqualTo(followUpId);
+            assertThat(rows.get(0).path("answers").size())
+                    .as("a committed follow-up must be accompanied by its atomically saved root answer")
+                    .isEqualTo(1);
+            assertStoredAnswer(rows.get(0), FIRST, INITIAL, "INITIAL");
+            assertThat(rows.get(1).path("answers").isEmpty()).isTrue();
+        } finally {
+            answerCommitted.countDown();
+            reader.shutdownNow();
+        }
     }
 
     @Test

@@ -90,7 +90,9 @@ class InterviewStorageTest {
             assertThat(session.getCriteriaVersion()).isEqualTo("question-rubric-1");
             assertThat(new SessionResponse(session).getCategoryName()).isNull();
 
-            List<Question> stored = questions.findBySessionOrderByPositionAscIdAsc(session);
+            List<Question> stored = questions.findHistoryBySession(session).stream()
+                    .map(QuestionRepository.HistoryRow::getQuestion)
+                    .toList();
             assertThat(stored).extracting(Question::getContent, Question::getPosition)
                     .containsExactly(tuple("Redis를 선택한 이유는 무엇인가요?", 1), tuple(FOLLOW_UP, 1),
                             tuple("캐시를 언제 무효화했나요?", 2));
@@ -165,7 +167,7 @@ class InterviewStorageTest {
             String categoryName = session.getCategory().getName();
             assertThat(new SessionResponse(session).getCategoryName()).isEqualTo(categoryName);
             assertThat(session.getResume()).isNull();
-            assertThat(questions.findBySessionOrderByPositionAscIdAsc(session)).isEmpty();
+            assertThat(questions.findHistoryBySession(session)).isEmpty();
             List<Answer> past = answers.findBySession(session);
             assertThat(past).extracting(Answer::getUserAnswer, Answer::getFeedback, Answer::getScore,
                             Answer::getEvaluation)

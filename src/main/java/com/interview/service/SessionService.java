@@ -18,6 +18,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -64,20 +65,30 @@ public class SessionService {
         var session = sessionRepository.findByIdAndUserEmail(id, email)
                 .orElseThrow(() -> new CustomException(ErrorCode.SESSION_NOT_FOUND));
 
-        Map<Long, List<Answer>> answersByQuestion = answerRepository.findBySessionOrderByCreatedAtAscIdAsc(session)
-                .stream()
-                .collect(Collectors.groupingBy(a -> a.getQuestion().getId(), LinkedHashMap::new, Collectors.toList()));
-        // 구형 고정 질문은 세션이 아닌 과거 답변을 통해서만 연결된다.
-        List<Question> questions = session.getResume() == null
-                ? answersByQuestion.values().stream().map(group -> group.get(0).getQuestion()).toList()
-                : questionRepository.findBySessionOrderByPositionAscIdAsc(session);
-        Map<Long, Question> followUpsByParent = questions.stream()
+        Map<Question, List<Answer>> answersByQuestion;
+        if (session.getResume() == null) {
+            // 구형 고정 질문은 세션이 아닌 과거 답변을 통해서만 연결된다.
+            answersByQuestion = answerRepository.findBySessionOrderByCreatedAtAscIdAsc(session).stream()
+                    .collect(Collectors.groupingBy(Answer::getQuestion, LinkedHashMap::new, Collectors.toList()));
+        } else {
+            // 원답과 함께 저장된 꼬리가 별도 SELECT에서만 보이지 않도록 한 번에 읽는다.
+            answersByQuestion = new LinkedHashMap<>();
+            for (var row : questionRepository.findHistoryBySession(session)) {
+                var bucket = answersByQuestion.computeIfAbsent(row.getQuestion(), ignored -> new ArrayList<>());
+                var answer = row.getAnswer();
+                if (answer != null) {
+                    bucket.add(answer);
+                }
+            }
+        }
+        Map<Long, Question> followUpsByParent = answersByQuestion.keySet().stream()
                 .filter(question -> question.getParentQuestion() != null)
                 .collect(Collectors.toMap(question -> question.getParentQuestion().getId(), Function.identity()));
 
-        List<QuestionResponse> history = questions.stream().map(question -> {
+        List<QuestionResponse> history = answersByQuestion.entrySet().stream().map(entry -> {
+            var question = entry.getKey();
             var followUp = followUpsByParent.get(question.getId());
-            var answers = answersByQuestion.getOrDefault(question.getId(), List.of()).stream()
+            var answers = entry.getValue().stream()
                     .map(answer -> new AnswerResponse(answer, followUp))
                     .toList();
             return new QuestionResponse(question, answers);
