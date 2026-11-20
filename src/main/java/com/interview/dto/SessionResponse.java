@@ -16,7 +16,7 @@ public class SessionResponse {
 
     public SessionResponse(Session session, List<QuestionResponse> questions) {
         this.id = session.getId();
-        this.categoryName = session.getCategory().getName();
+        this.categoryName = session.getCategory() == null ? null : session.getCategory().getName();
         this.status = session.getStatus().name();
         this.createdAt = session.getCreatedAt();
         this.questions = questions;

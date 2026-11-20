@@ -1,10 +1,12 @@
 package com.interview.entity;
 
+import com.interview.dto.InterviewAiModels.Evaluation;
 import jakarta.persistence.*;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
+import java.util.Objects;
 
 @Entity
 @Table(name = "answers")
@@ -32,6 +34,16 @@ public class Answer {
 
     private Integer score;
 
+    @Convert(converter = InterviewJsonConverters.EvaluationConverter.class)
+    @Column(columnDefinition = "MEDIUMTEXT", updatable = false)
+    private Evaluation evaluation;
+
+    @Column(length = 100, updatable = false)
+    private String model;
+
+    @Column(name = "criteria_version", length = 50, updatable = false)
+    private String criteriaVersion;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
@@ -43,5 +55,18 @@ public class Answer {
         this.feedback = feedback;
         this.score = score;
         this.createdAt = LocalDateTime.now();
+    }
+
+    public static Answer evaluated(Question question, String userAnswer, Evaluation evaluation,
+                                   String model, String criteriaVersion) {
+        Session session = Objects.requireNonNull(question).getSession();
+        if (session == null) {
+            throw new IllegalArgumentException("Structured evaluations require a session question");
+        }
+        Answer answer = new Answer(session, question, userAnswer, null, null);
+        answer.evaluation = Objects.requireNonNull(evaluation);
+        answer.model = Objects.requireNonNull(model);
+        answer.criteriaVersion = Objects.requireNonNull(criteriaVersion);
+        return answer;
     }
 }

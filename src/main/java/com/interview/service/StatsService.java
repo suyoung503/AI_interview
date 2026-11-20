@@ -48,6 +48,7 @@ public class StatsService {
 
         // 카테고리별로 답변을 묶어서 평균 계산
         Map<String, List<Answer>> byCategory = answers.stream()
+                .filter(a -> a.getQuestion().getCategory() != null)
                 .collect(Collectors.groupingBy(a -> a.getQuestion().getCategory().getName()));
 
         List<StatsResponse.CategoryStat> categoryStats = byCategory.entrySet().stream()
