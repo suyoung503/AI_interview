@@ -19,12 +19,26 @@ import tools.jackson.databind.json.JsonMapper;
 import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Properties;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
 class GroqLiveEvidenceTest {
+
+    @ParameterizedTest
+    @ValueSource(strings = {"jdk.httpclient.disableRetryConnect", "jdk.httpclient.enableAllMethodRetry",
+            "surefire.rerunFailingTestsCount"})
+    void probeRequiresExplicitNoRetryOptions(String option) {
+        var options = new Properties();
+        options.setProperty("jdk.httpclient.disableRetryConnect", "true");
+        options.setProperty("jdk.httpclient.enableAllMethodRetry", "false");
+        options.setProperty("surefire.rerunFailingTestsCount", "0");
+        GroqLiveEvidence.requireProbeGuards(options);
+        options.remove(option);
+        assertThatThrownBy(() -> GroqLiveEvidence.requireProbeGuards(options)).isInstanceOf(AssertionError.class);
+    }
 
     @ParameterizedTest
     @ValueSource(ints = {400, 503})

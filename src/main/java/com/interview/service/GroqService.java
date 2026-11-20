@@ -130,7 +130,7 @@ public class GroqService {
         requireFields(result, (comprehensive ? COMPREHENSIVE_FIELDS : INITIAL_FIELDS).keySet());
         String followUp = comprehensive || result.get("followUpQuestion").isNull()
                 ? null : text(result.get("followUpQuestion"), QUESTION_MAX);
-        return new Evaluation(
+        var draft = new Evaluation(
                 enumValue(result.path("technicalAccuracy"), TechnicalAccuracy.class),
                 enumValue(result.path("reasoning"), Reasoning.class),
                 enumValue(result.path("clarity"), Clarity.class),
@@ -139,6 +139,31 @@ public class GroqService {
                 textList(result.path("uncertainties")),
                 text(result.path("summary"), SUMMARY_MAX),
                 followUp);
+        // 모든 제공자 필드가 검증된 뒤에만 새 평가의 표시·꼬리 정책을 적용한다.
+        return applyVerdict(draft);
+    }
+
+    private static Evaluation applyVerdict(Evaluation draft) {
+        var accuracy = switch (draft.technicalAccuracy()) {
+            case CORRECT -> "정확함";
+            case INCORRECT -> "오류 있음";
+            case NOT_ASSESSABLE -> "판단할 정보 부족";
+        };
+        var reasoning = switch (draft.reasoning()) {
+            case SUFFICIENT -> "충분함";
+            case INSUFFICIENT -> "부족함";
+            case INVALID -> "타당하지 않음";
+        };
+        var clarity = switch (draft.clarity()) {
+            case CLEAR -> "명확함";
+            case UNCLEAR -> "불명확함";
+        };
+        var summary = "기술적 정확성: %s. 근거: %s. 설명력: %s.".formatted(accuracy, reasoning, clarity);
+        boolean adequate = draft.technicalAccuracy() == TechnicalAccuracy.CORRECT
+                && draft.reasoning() == Reasoning.SUFFICIENT && draft.clarity() == Clarity.CLEAR;
+        return new Evaluation(draft.technicalAccuracy(), draft.reasoning(), draft.clarity(), draft.strengths(),
+                adequate ? List.of() : draft.improvements(), adequate ? List.of() : draft.uncertainties(),
+                summary, adequate ? null : draft.followUpQuestion());
     }
 
     private JsonNode complete(String system, Map<String, Object> responseFormat, Object data) {

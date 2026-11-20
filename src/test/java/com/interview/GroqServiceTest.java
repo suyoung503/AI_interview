@@ -52,6 +52,12 @@ class GroqServiceTest {
              "uncertainties":[],"summary":"기술적 일반화에 오류가 있습니다.","followUpQuestion":null}
             """;
 
+    private static final String ADEQUATE_DRAFT = """
+            {"technicalAccuracy":"CORRECT","reasoning":"SUFFICIENT","clarity":"CLEAR",
+             "strengths":["세 인스턴스가 목록을 공유하는 이유를 설명함"],"improvements":["인스턴스 수가 빠짐"],
+             "uncertainties":["추가 제품 비교가 없음"],"summary":"선택 이유가 부족함","followUpQuestion":"대안은?"}
+            """;
+
     private static final List<String> AXES = List.of("기술적 정확성", "근거", "설명력");
     private static final String COMPREHENSIVE_JSON = EVALUATION_JSON.replace(",\"followUpQuestion\":null", "");
 
@@ -83,14 +89,27 @@ class GroqServiceTest {
     }
 
     @Test
+    void adequateVerdictKeepsContextualStrengthButDropsInventedGapsAndFollowUp() {
+        stub.respondContent(ADEQUATE_DRAFT);
+        var question = new GeneratedQuestion("분산 캐시를 선택한 이유는?", "분산 캐시 사용", "선택의 근거", AXES);
+        var evaluation = service.evaluate(new EvaluationContext(question,
+                "세 인스턴스가 같은 목록을 읽고 30초 지연을 허용합니다. 한 대라면 로컬 캐시가 더 단순합니다.",
+                null, null, null));
+
+        assertThat(evaluation).isEqualTo(new Evaluation(TechnicalAccuracy.CORRECT, Reasoning.SUFFICIENT,
+                Clarity.CLEAR, List.of("세 인스턴스가 목록을 공유하는 이유를 설명함"), List.of(), List.of(),
+                "기술적 정확성: 정확함. 근거: 충분함. 설명력: 명확함.", null));
+    }
+
+    @Test
     void evaluatesAnswerWithoutScoreAndSendsExactQuestionEvidenceAndAnswer() {
-        stub.respondContent(EVALUATION_JSON);
+        stub.respondContent(EVALUATION_JSON.replace("기술적 일반화에 오류가 있습니다.", "세 축 모두 부적절함"));
 
         Evaluation evaluation = service.evaluate(initialContext());
 
         assertThat(evaluation).isEqualTo(new Evaluation(TechnicalAccuracy.INCORRECT, Reasoning.INVALID, Clarity.CLEAR,
                 List.of("정책을 제시함"), List.of("TTL은 즉시 일관성을 보장하지 않음"), List.of(),
-                "기술적 일반화에 오류가 있습니다.", null));
+                "기술적 정확성: 오류 있음. 근거: 타당하지 않음. 설명력: 명확함.", null));
         JsonNode data = assertRequest("interview_evaluation");
         assertPersonalizedQuestionWithServerAxes(data);
         assertThat(data.path("originalAnswer").stringValue()).isEqualTo(ORIGINAL_ANSWER);
@@ -103,7 +122,9 @@ class GroqServiceTest {
     void acceptsHonestUncertaintyWithOneClarifyingQuestion() {
         stub.respondContent(JSON.writeValueAsString(INITIAL));
 
-        assertThat(service.evaluate(initialContext())).isEqualTo(INITIAL);
+        assertThat(service.evaluate(initialContext())).isEqualTo(new Evaluation(TechnicalAccuracy.NOT_ASSESSABLE,
+                Reasoning.INSUFFICIENT, Clarity.CLEAR, List.of(), List.of("기준 구체화"), List.of("SLA 기준 불명"),
+                "기술적 정확성: 판단할 정보 부족. 근거: 부족함. 설명력: 명확함.", FOLLOW_UP));
         assertThat(stub.requests()).hasSize(1);
     }
 
@@ -203,6 +224,9 @@ class GroqServiceTest {
 
     static Stream<String> invalidEvaluations() {
         return Stream.of(
+                ADEQUATE_DRAFT.replace("대안은?", " "),
+                ADEQUATE_DRAFT.replace("인스턴스 수가 빠짐", "가".repeat(501)),
+                ADEQUATE_DRAFT.replace("선택 이유가 부족함", ""),
                 "{",
                 EVALUATION_JSON + "{}",
                 COMPREHENSIVE_JSON, // 원답은 null인 경우에도 followUpQuestion 키가 필요하다.

@@ -52,10 +52,13 @@ class GroqLiveTest {
             부하 테스트에서 캐시 만료 직후 DB 요청이 몰려 TTL에 무작위 편차를 추가했습니다.
             Redis 장애 시 DB로 돌아가도록 하되 동시 조회 수를 제한했습니다.
             """;
-    private static final GeneratedQuestion REDIS_QUESTION = new GeneratedQuestion(
+    static final GeneratedQuestion REDIS_QUESTION = new GeneratedQuestion(
             "로컬 캐시 대신 Redis를 선택한 이유와 그 선택이 요구사항에 맞는 근거를 설명해 주세요.",
             REDIS_EXPERIENCE, "선택을 정당화하고 대안을 비교하는지 확인",
             List.of("기술적 정확성", "근거", "설명력"));
+
+    static final String TECHNICAL_ERROR_ANSWER =
+            "JVM 내부 로컬 캐시가 별개 서버들의 힙을 자동으로 동기화하고, Redis 캐시는 키가 영원히 만료되지 않습니다.";
 
     @TestConfiguration
     static class Config {
@@ -63,7 +66,7 @@ class GroqLiveTest {
         @Bean @Primary
         GroqLiveClient confirmedLiveClient(@Value("${GROQ_API_KEY:}") String key) {
             assertTrue(!key.isBlank(), "GROQ_API_KEY를 로컬 비밀 설정에 준비해야 합니다.");
-            return new GroqLiveClient(key);
+            return new GroqLiveClient(key, 6);
         }
     }
 
@@ -163,8 +166,7 @@ class GroqLiveTest {
                                 + " TTL을 한 곳에서 관리하는 게 유리했고, 목록은 30초까지 지연돼도 됩니다."
                                 + " 단일 인스턴스라면 로컬 캐시가 더 단순합니다. Redis 장애 때는 DB 조회 동시성을 제한합니다."),
                 Map.entry("근거 부족", "Redis가 좋다고 해서 Redis를 썼습니다."),
-                Map.entry("명백한 기술 오류",
-                        "JVM 내부 로컬 캐시가 별개 서버들의 힙을 자동으로 동기화하고, Redis 캐시는 키가 영원히 만료되지 않습니다."))) {
+                Map.entry("명백한 기술 오류", TECHNICAL_ERROR_ANSWER))) {
             var evaluation = client.evaluate(new EvaluationContext(REDIS_QUESTION, sample.getValue(), null, null, null));
             evaluations.put(sample.getKey(), Map.of("answer", sample.getValue(), "evaluation", evaluation));
         }

@@ -13,7 +13,7 @@ final class GroqInterviewContract {
 
     private GroqInterviewContract() {}
 
-    static final String VERSION = "resume-interview-v3";
+    static final String VERSION = "resume-interview-v4";
     static final List<String> EVALUATION_CRITERIA = List.of("기술적 정확성", "근거", "설명력");
     static final int QUESTION_COUNT = 5;
     static final int QUESTION_MAX = 500;
@@ -51,9 +51,15 @@ final class GroqInterviewContract {
             익숙함은 유효할 수 있는 제약입니다. 선택이 요구사항에 어떻게 맞는지 설명했는지 판단하세요.
             선택 이유 미설명은 INSUFFICIENT, 기술적 오류는 INCORRECT, 논리적으로 무효한 근거는 INVALID입니다.
             기술적 판단에 필요한 정보가 없으면 NOT_ASSESSABLE입니다.
-            이미 확인된 오류는 보충 질문이 있어도 개선점에 구체적으로 쓰세요.
+            실제 답변에 있는 주장만 평가하세요. 오류가 있으면 꼬리 질문으로 미루지 말고 improvements에서
+            지원자가 한 잘못된 주장과 이를 바로잡는 설명을 구분하세요. 동작이 설정·환경에 따라 달라진다면
+            해당 조건이 성립할 때와 성립하지 않을 때를 나누어 설명하세요. 조건부 동작을 보편적인 사실로 단정하지 마세요.
+            주장이 틀렸더라도 전달은 명확할 수 있습니다. 정확성과 설명력을 별도로 판단하세요.
+            strengths에는 답변에 실제로 나타난 강점만, improvements에는 질문 의도에 비추어 실제로 부족한 점만 쓰세요.
+            이미 답한 사항을 다시 요구하거나 선택적인 심화 비교를 필수 개선점·불확실성으로 넣지 마세요.
             확인할 수 없는 사실이나 경험·본인 기여·수치는 uncertainties에 적으세요.
             제시되지 않은 사실·수치·이유를 만들어내거나 하지 않은 검증을 하도록 유도하지 마세요.
+            실제 해당 사항이 없으면 빈 배열을 사용하고, 있으면 중요한 1~3가지에 집중하세요. 개수를 채우지 마세요.
             strengths, improvements, uncertainties는 각각 최대 %d개, 각 항목은 최대 %d자입니다.
             summary는 최대 %d자입니다. 숫자 점수를 부여하지 마세요.
             """.formatted(LIST_MAX, LIST_ITEM_MAX, SUMMARY_MAX);

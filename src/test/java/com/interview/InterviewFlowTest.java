@@ -59,12 +59,12 @@ class InterviewFlowTest {
     private static final String INITIAL = """
             {"technicalAccuracy":"NOT_ASSESSABLE","reasoning":"INSUFFICIENT","clarity":"CLEAR",
              "strengths":[],"improvements":["선택 근거"],"uncertainties":["실제 성과"],
-             "summary":"근거를 더 설명해 주세요.","followUpQuestion":"캐시를 선택한 기준은?"}
+             "summary":"기술적 정확성: 판단할 정보 부족. 근거: 부족함. 설명력: 명확함.","followUpQuestion":"캐시를 선택한 기준은?"}
             """;
     private static final String FINAL = """
             {"technicalAccuracy":"CORRECT","reasoning":"SUFFICIENT","clarity":"CLEAR",
              "strengths":["적합성 설명"],"improvements":[],"uncertainties":[],
-             "summary":"적합한 이유를 설명했습니다.","followUpQuestion":null}
+             "summary":"기술적 정확성: 정확함. 근거: 충분함. 설명력: 명확함.","followUpQuestion":null}
             """;
 
     private static final String COMPREHENSIVE = FINAL.replace(",\"followUpQuestion\":null", "");
@@ -175,6 +175,33 @@ class InterviewFlowTest {
     }
 
     @Test
+    void adequateInitialAnswerPersistsFiveRootsAndNoInventedDeficitOrChild() throws Exception {
+        Counts before = counts();
+        var session = start();
+        long sid = session.path("id").asLong(), root = firstId(session);
+        stub.respondContent("""
+                {"technicalAccuracy":"CORRECT","reasoning":"SUFFICIENT","clarity":"CLEAR",
+                 "strengths":["적합성 설명"],"improvements":["추가 대안이 없음"],"uncertainties":["인스턴스 수 불명"],
+                 "summary":"선택 이유가 부족함","followUpQuestion":"인스턴스는 몇 대인가요?"}
+                """);
+        var result = created(answer(owner, sid, root, "인스턴스 셋이 공유하고 30초 지연은 허용합니다."));
+        assertThat(result.get("followUpQuestion").isNull()).isTrue();
+        assertThat(result.path("evaluation")).isEqualTo(json.readTree(FINAL));
+        assertThat(storedEvaluation(result)).isEqualTo(result.path("evaluation"));
+        var history = ok(detail(owner, sid)).path("questions");
+        assertThat(history.size()).isEqualTo(5);
+        var reloaded = history.at("/0/answers/0");
+        assertThat(reloaded.path("id")).isEqualTo(result.path("id"));
+        assertThat(reloaded.path("evaluation")).isEqualTo(result.path("evaluation"));
+        assertThat(reloaded.get("followUpQuestion").isNull()).isTrue();
+        assertThat(reloaded.path("criteriaVersion").asString()).isEqualTo("resume-interview-v4");
+        assertThat(counts()).isEqualTo(before.plus(1, 5, 1));
+        int calls = stub.requests().size();
+        answer(owner, sid, root, FIRST).andExpect(status().isConflict());
+        assertThat(stub.requests()).hasSize(calls);
+    }
+
+    @Test
     void reloadsOwnedHistoryFromLoginThroughCompletion() throws Exception {
         var credentials = Map.of("email", UUID.randomUUID() + "@example.test", "password", "test-password");
         created(send("", "/api/auth/signup", credentials));
@@ -212,7 +239,7 @@ class InterviewFlowTest {
         assertThat(history.path("resume").path("createdAt").asString()).isNotBlank();
         assertThat(history.get("categoryName").isNull()).isTrue();
         assertThat(history.path("model").asString()).isEqualTo("openai/gpt-oss-120b");
-        assertThat(history.path("criteriaVersion").asString()).isEqualTo("resume-interview-v3");
+        assertThat(history.path("criteriaVersion").asString()).isEqualTo("resume-interview-v4");
         JsonNode rows = history.path("questions");
         assertThat(rows.size()).isEqualTo(7);
         List<Long> orderedIds = List.of(rootId, followUpId, secondId, pendingId,
@@ -250,22 +277,28 @@ class InterviewFlowTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"resume-interview-v1", "resume-interview-v2"})
+    @ValueSource(strings = {"resume-interview-v1", "resume-interview-v2", "resume-interview-v3"})
     void evaluatesHistoricalFollowUpWithCurrentAxesWithoutRewritingHistory(String oldVersion) throws Exception {
         JsonNode session = start();
         long sid = session.path("id").asLong(), qid = firstId(session);
         stub.respondContent(INITIAL);
         var original = created(answer(owner, sid, qid, FIRST));
         long child = original.path("followUpQuestion").path("id").asLong();
-        String oldCriteria = "[\"특정 명령을 사용해야 함\"]";
+        String oldCriteria = oldVersion.equals("resume-interview-v3")
+                ? json.writeValueAsString(AXES) : "[\"특정 명령을 사용해야 함\"]";
         db.update("update sessions set criteria_version = ? where id = ?", oldVersion, sid);
         db.update("update questions set evaluation_criteria = ? where id = ?", oldCriteria, qid);
-        db.update("update answers set criteria_version = ? where id = ?", oldVersion, original.path("id").asLong());
+        // An old provider could report all positive axes and still persist deficits and a child.
+        var oldEvaluation = INITIAL.replace("NOT_ASSESSABLE", "CORRECT").replace("INSUFFICIENT", "SUFFICIENT")
+                .replace("기술적 정확성: 판단할 정보 부족. 근거: 부족함. 설명력: 명확함.", "과거에 저장된 모순된 요약");
+        db.update("update answers set criteria_version = ?, evaluation = ? where id = ?",
+                oldVersion, oldEvaluation, original.path("id").asLong());
         JsonNode before = ok(detail(owner, sid));
+        assertThat(before.at("/questions/0/answers/0/evaluation")).isEqualTo(json.readTree(oldEvaluation));
         stub.respondContent(COMPREHENSIVE);
         var combined = created(answer(owner, sid, child, "요구사항에 맞았기 때문입니다."));
         assertThat(lastContext().at("/originalQuestion/evaluationCriteria")).isEqualTo(json.valueToTree(AXES));
-        assertThat(combined.path("criteriaVersion").asString()).isEqualTo("resume-interview-v3");
+        assertThat(combined.path("criteriaVersion").asString()).isEqualTo("resume-interview-v4");
         JsonNode after = ok(detail(owner, sid));
         assertThat(after.path("criteriaVersion").asString()).isEqualTo(oldVersion);
         assertThat(after.at("/questions/0/evaluationCriteria")).isEqualTo(json.readTree(oldCriteria));
@@ -649,7 +682,7 @@ class InterviewFlowTest {
         assertThat(stored.path("evaluation")).isEqualTo(json.readTree(evaluation));
         assertThat(stored.path("evaluationStage").asString()).isEqualTo(stage);
         assertThat(stored.path("model").asString()).isEqualTo("openai/gpt-oss-120b");
-        assertThat(stored.path("criteriaVersion").asString()).isEqualTo("resume-interview-v3");
+        assertThat(stored.path("criteriaVersion").asString()).isEqualTo("resume-interview-v4");
     }
 
     private long legacySession(long ownerResume, long category) {

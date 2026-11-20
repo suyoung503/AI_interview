@@ -3,14 +3,8 @@ package com.interview;
 import com.interview.dto.InterviewAiModels.Evaluation;
 import com.interview.dto.InterviewAiModels.EvaluationContext;
 import com.interview.dto.InterviewAiModels.GeneratedQuestion;
-import com.interview.exception.CustomException;
-import com.interview.service.GroqService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.test.context.ActiveProfiles;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.nio.file.Files;
@@ -18,49 +12,21 @@ import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.HexFormat;
-import java.util.LinkedHashMap;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @EnabledIfSystemProperty(named = "groq.followup.diagnostic.confirmed", matches = "true")
-@SpringBootTest(classes = GroqFollowUpDiagnosticTest.Config.class, webEnvironment = SpringBootTest.WebEnvironment.NONE,
-        properties = {"spring.config.location=classpath:/application.properties",
-                "spring.config.import=optional:file:${INTERVIEW_ENV_FILE:./.env}[.properties]",
-                "logging.level.root=INFO"})
-@ActiveProfiles("test")
-class GroqFollowUpDiagnosticTest {
+class GroqFollowUpDiagnosticTest extends GroqDiagnosticSupport {
 
     private static final Path SYNTHETIC_EVIDENCE = Path.of(".superpowers", "sdd",
             "2026-11-20-resume-interview-coach", "task-7-final-groq-live-evidence.json");
     private static final String SYNTHETIC_SHA256 = "7141dd0a3ade7228b41d3d624136cd987a810dc9620bb59d7f823c5b82dd57c2";
 
-    @Configuration(proxyBeanMethods = false)
-    static class Config {}
-
-    @Value("${GROQ_API_KEY:}") String key;
-
     @Test
     void diagnosesOneDirectCallForTheV2SyntheticFollowUp() throws Exception {
         GroqLiveEvidence.requireHttpGuards();
         var json = JsonMapper.builder().build();
-        var context = restoreSyntheticContext(json);
-        assertTrue(!key.isBlank(), "GROQ_API_KEY를 로컬 비밀 설정에 준비해야 합니다.");
-        var client = new GroqService(key);
-
-        var evidence = new LinkedHashMap<String, Object>();
-        evidence.put("attempts", 1);
-        try {
-            evidence.put("evaluation", client.evaluate(context));
-        } catch (RuntimeException e) {
-            int status = e instanceof CustomException custom ? custom.getErrorCode().getStatus().value() : 500;
-            var failure = GroqLiveEvidence.failure(status, e);
-            evidence.put("error", failure);
-            throw new AssertionError("Groq 꼬리 평가 실패: " + failure.errorCode());
-        } finally {
-            Files.writeString(Path.of("target", "groq-upstream-diagnostic-evidence.json"),
-                    json.writerWithDefaultPrettyPrinter().writeValueAsString(evidence));
-        }
+        recordOneEvaluation(json, restoreSyntheticContext(json), Path.of("target", "groq-upstream-diagnostic-evidence.json"));
     }
 
     private EvaluationContext restoreSyntheticContext(JsonMapper json) throws Exception {

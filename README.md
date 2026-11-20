@@ -22,7 +22,7 @@
 | `GET /api/stats` | — | 200 `{totalSessions, completedSessions, overallAverageScore, categoryStats, averageScoreScope}` |
 
 - **이력서:** 공백만으로 이루어지지 않은 문자열, 최대 20,000 유니코드 코드 포인트입니다. 원문의 공백·개행을 보존합니다. 수정 API 대신 새 이력서를 등록하며, 기존 세션은 당시 저장된 원문을 계속 참조합니다. 이력서 목록은 `id, createdAt`만 반환합니다.
-- **세션:** `id, categoryName, status, createdAt, questions, resumeId, model, criteriaVersion`을 반환합니다. 생성에는 양의 정수 `resumeId`가 필요합니다(`categoryId`로 새 면접을 만들 수 없음). 생성 결과의 각 질문은 `id, content, categoryName, position, sourceQuote, intent, evaluationCriteria, parentQuestionId`를 포함합니다. `sourceQuote`는 이력서에서 직접 인용한 부분입니다. 질문 본문·인용문·의도는 AI가 이력서에 맞춰 생성하지만, 신규 `evaluationCriteria`는 서버가 고정한 `["기술적 정확성", "근거", "설명력"]`입니다. 새 질문과 평가는 `resume-interview-v3` 기준과 `openai/gpt-oss-120b` 모델을 사용합니다. 과거 v1/v2 질문을 이어서 평가해도 새 평가 요청에만 공통 3축을 적용하며, 저장된 질문 기준·평가·버전은 바뀌지 않습니다.
+- **세션:** `id, categoryName, status, createdAt, questions, resumeId, model, criteriaVersion`을 반환합니다. 생성에는 양의 정수 `resumeId`가 필요합니다(`categoryId`로 새 면접을 만들 수 없음). 생성 결과의 각 질문은 `id, content, categoryName, position, sourceQuote, intent, evaluationCriteria, parentQuestionId`를 포함합니다. `sourceQuote`는 이력서에서 직접 인용한 부분입니다. 질문 본문·인용문·의도는 AI가 이력서에 맞춰 생성하지만, 신규 `evaluationCriteria`는 서버가 고정한 `["기술적 정확성", "근거", "설명력"]`입니다. 새 질문과 평가는 `resume-interview-v4` 기준과 `openai/gpt-oss-120b` 모델을 사용합니다. 과거 v1/v2/v3 질문을 이어서 평가해도 새 평가 요청에만 공통 3축을 적용하며, 저장된 질문 기준·평가·버전은 바뀌지 않습니다.
 - **답변:** 양의 정수 ID 두 개와 공백만으로 이루어지지 않은 `userAnswer`(최대 10,000 코드 포인트)를 보냅니다. 응답 필드는 `id, questionContent, userAnswer, feedback, score, createdAt, evaluation, evaluationStage, model, criteriaVersion, followUpQuestion`입니다. 신규 `feedback`과 `score`는 null입니다. `evaluation` 예시는 아래와 같습니다.
 
 ```json
@@ -33,7 +33,7 @@
   "strengths": [],
   "improvements": ["조회 지연 허용 범위와 장애 시 동작을 설명해 보세요."],
   "uncertainties": ["선택한 캐시가 여러 인스턴스에서 필요한 이유"],
-  "summary": "선택을 설명했지만 요구사항과의 연결은 아직 불분명합니다.",
+  "summary": "기술적 정확성: 판단할 정보 부족. 근거: 부족함. 설명력: 명확함.",
   "followUpQuestion": "조회가 지연되어도 되는 범위는 어느 정도였나요?"
 }
 ```
@@ -62,6 +62,7 @@ AI 실패는 정상 피드백이나 임의 점수로 대체하지 않으며, 실
 
 ### 평가와 개인정보
 
+- v4의 `summary`는 AI가 판정한 세 축을 서버가 각각 요약합니다. 답변에 맞는 구체적인 강점과 실제 개선점은 AI가 작성합니다. 세 축 모두 긍정이면 강점은 유지하고 개선점·불확실성 목록은 비워 반환하며 꼬리 질문을 만들지 않습니다. 이는 답변의 평가이지 경험이나 수치가 검증됐다는 뜻이 아닙니다.
 - 평가 결과는 면접 연습용 참고 자료이지 사실 증명, 합격 기준, 채용 판단이 아닙니다. 일정·팀 경험 같은 현실적 제약도 요구사항과 선택 근거가 연결되면 타당할 수 있습니다. 근거가 부족한 경우와 명백한 기술 오류를 구분하도록 했지만 모델이 틀리거나 편향될 수 있습니다. 인용문이 원문에 있다는 검사는 질문의 의미적 관련성까지 보장하지 않습니다.
 - 이력서 저장·기록 조회 자체는 AI를 호출하지 않습니다. 질문을 만들 때는 **이력서 원문**이 Groq로 전송됩니다. 답변 평가에는 질문, 관련 인용문·질문 의도·서버 고정 3축, 실제 답변이 전송되며, 꼬리 평가에는 원답과 초기 평가도 함께 전송됩니다. OpenAI Platform 키나 별도 OpenAI 계정은 사용하지 않습니다.
 - 가상 또는 비식별 텍스트를 권장합니다. 이름을 지워도 기술 경험으로 재식별될 수 있으므로 연락처, 내부 코드·문서, 회사 기밀, 키 등은 입력하지 마세요. 제공자의 조건은 [Groq 데이터 처리 안내](https://console.groq.com/docs/your-data)를 확인하세요. 원문과 평가 결과는 앱 DB에도 남습니다. 프롬프트는 입력 안의 명령을 참고 데이터로 취급하도록 하지만 평가 조작을 완전히 막지는 못합니다.
