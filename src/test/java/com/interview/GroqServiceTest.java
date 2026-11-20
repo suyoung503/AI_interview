@@ -52,6 +52,9 @@ class GroqServiceTest {
              "uncertainties":[],"summary":"기술적 일반화에 오류가 있습니다.","followUpQuestion":null}
             """;
 
+    private static final List<String> AXES = List.of("기술적 정확성", "근거", "설명력");
+    private static final String COMPREHENSIVE_JSON = EVALUATION_JSON.replace(",\"followUpQuestion\":null", "");
+
     private GroqStub stub;
     private GroqService service;
 
@@ -72,9 +75,9 @@ class GroqServiceTest {
 
         List<GeneratedQuestion> questions = service.generateQuestions(RESUME);
 
-        assertThat(questions).hasSize(5);
+        assertThat(questions).hasSize(5).allSatisfy(question -> assertThat(question.evaluationCriteria()).isEqualTo(AXES));
         assertThat(questions.get(0))
-                .isEqualTo(new GeneratedQuestion("질문 0?", QUOTE, "근거 확인", List.of("조건 설명")));
+                .isEqualTo(new GeneratedQuestion("질문 0?", QUOTE, "근거 확인", AXES));
         JsonNode data = assertRequest("interview_questions");
         assertThat(data.path("resumeText").stringValue()).isEqualTo(RESUME);
     }
@@ -89,7 +92,7 @@ class GroqServiceTest {
                 List.of("정책을 제시함"), List.of("TTL은 즉시 일관성을 보장하지 않음"), List.of(),
                 "기술적 일반화에 오류가 있습니다.", null));
         JsonNode data = assertRequest("interview_evaluation");
-        assertThat(data.path("originalQuestion")).isEqualTo(JSON.valueToTree(ORIGINAL));
+        assertPersonalizedQuestionWithServerAxes(data);
         assertThat(data.path("originalAnswer").stringValue()).isEqualTo(ORIGINAL_ANSWER);
         assertThat(data.path("initialEvaluation").isNull()).isTrue();
         assertThat(data.path("followUpQuestion").isNull()).isTrue();
@@ -106,13 +109,14 @@ class GroqServiceTest {
 
     @Test
     void followUpEvaluationIncludesOriginalAndNewEvidence() {
-        stub.respondContent(EVALUATION_JSON);
+        stub.respondContent(COMPREHENSIVE_JSON);
         String followUpAnswer = "\"3초\"였습니다.\n문서에도 기재했어요.";
 
-        service.evaluate(new EvaluationContext(ORIGINAL, ORIGINAL_ANSWER, INITIAL, FOLLOW_UP, followUpAnswer));
+        var result = service.evaluate(new EvaluationContext(ORIGINAL, ORIGINAL_ANSWER, INITIAL, FOLLOW_UP, followUpAnswer));
+        assertThat(result.followUpQuestion()).isNull();
 
         JsonNode data = assertRequest("interview_evaluation");
-        assertThat(data.path("originalQuestion")).isEqualTo(JSON.valueToTree(ORIGINAL));
+        assertPersonalizedQuestionWithServerAxes(data);
         assertThat(data.path("originalAnswer").stringValue()).isEqualTo(ORIGINAL_ANSWER);
         assertThat(data.path("initialEvaluation")).isEqualTo(JSON.valueToTree(INITIAL));
         assertThat(data.path("followUpQuestion").stringValue()).isEqualTo(FOLLOW_UP);
@@ -121,16 +125,30 @@ class GroqServiceTest {
 
     @Test
     void requestsAnOptionalFollowUpOnlyForTheInitialEvaluation() {
-        stub.respondContent(EVALUATION_JSON);
-        service.evaluate(initialContext());
-        service.evaluate(new EvaluationContext(ORIGINAL, ORIGINAL_ANSWER, INITIAL, FOLLOW_UP, "추가 설명"));
-
+        // Inspect the schemas on the wire independently of parsing a successful model response.
+        stub.respond(503, "");
+        assertThatThrownBy(() -> service.evaluate(initialContext())).isInstanceOf(CustomException.class);
+        assertThatThrownBy(() -> service.evaluate(new EvaluationContext(ORIGINAL, ORIGINAL_ANSWER, INITIAL,
+                FOLLOW_UP, "추가 설명"))).isInstanceOf(CustomException.class);
         var requests = stub.requests();
         assertThat(requests).hasSize(2);
-        String type = "/response_format/json_schema/schema/properties/followUpQuestion/type";
-        assertThat(requests.get(0).body().at(type).values().stream().map(JsonNode::stringValue).toList())
+        var initial = requests.get(0).body().at("/response_format/json_schema/schema");
+        var comprehensive = requests.get(1).body().at("/response_format/json_schema/schema");
+        assertClosedSchema(initial);
+        assertClosedSchema(comprehensive);
+        assertThat(initial.path("properties").propertyNames()).containsExactlyInAnyOrder("technicalAccuracy",
+                "reasoning", "clarity", "strengths", "improvements", "uncertainties", "summary", "followUpQuestion");
+        assertThat(initial.at("/properties/followUpQuestion/type").values().stream().map(JsonNode::stringValue).toList())
                 .containsExactlyInAnyOrder("string", "null");
-        assertThat(requests.get(1).body().at(type)).isEqualTo(JSON.valueToTree("null"));
+        assertThat(comprehensive.path("properties").propertyNames()).containsExactlyInAnyOrder("technicalAccuracy",
+                "reasoning", "clarity", "strengths", "improvements", "uncertainties", "summary");
+    }
+
+    @Test
+    void rejectsEvenNullFollowUpPropertyOnComprehensiveOutput() {
+        stub.respondContent(EVALUATION_JSON);
+        assertFailure(502, () -> service.evaluate(new EvaluationContext(ORIGINAL, ORIGINAL_ANSWER, INITIAL,
+                FOLLOW_UP, "추가 설명")));
     }
 
     @Test
@@ -146,6 +164,9 @@ class GroqServiceTest {
         stub.respondContent(generation(0, "INSUFFICIENT_RESUME"));
 
         assertFailure(422, () -> service.generateQuestions("한 줄뿐입니다."));
+        var questionSchema = stub.requests().get(0).body().at("/response_format/json_schema/schema/properties/questions/items");
+        assertClosedSchema(questionSchema);
+        assertThat(questionSchema.path("properties").propertyNames()).containsExactlyInAnyOrder("content", "sourceQuote", "intent");
     }
 
     @ParameterizedTest
@@ -168,8 +189,7 @@ class GroqServiceTest {
                 valid.replace("근거 확인", "\\t"),
                 valid.replace("\"근거 확인\"", "42"),
                 valid.replace("\"근거 확인\"", "{}"),
-                valid.replace("\"조건 설명\"", "null"),
-                valid.replace("[\"조건 설명\"]", "[]"),
+                valid.replace("\"근거 확인\"", "\"근거 확인\",\"evaluationCriteria\":[\"조건 설명\"]"),
                 valid.replace("질문 0?", "가".repeat(501)));
     }
 
@@ -185,6 +205,7 @@ class GroqServiceTest {
         return Stream.of(
                 "{",
                 EVALUATION_JSON + "{}",
+                COMPREHENSIVE_JSON, // 원답은 null인 경우에도 followUpQuestion 키가 필요하다.
                 EVALUATION_JSON.replace("\"INCORRECT\"", "\"UNKNOWN\""),
                 EVALUATION_JSON.replace("\"INVALID\"", "0"),
                 EVALUATION_JSON.replace("\"CLEAR\"", "\"UNCERTAIN\""),
@@ -295,6 +316,12 @@ class GroqServiceTest {
         assertThat(stub.requests()).isEmpty();
     }
 
+    private static void assertPersonalizedQuestionWithServerAxes(JsonNode data) {
+        assertThat(data.path("originalQuestion")).isEqualTo(JSON.valueToTree(
+                new GeneratedQuestion(ORIGINAL.content(), QUOTE, ORIGINAL.intent(), AXES)));
+        assertThat(ORIGINAL.evaluationCriteria()).containsExactly("데이터 신선도 고려");
+    }
+
     private JsonNode assertRequest(String schemaName) {
         assertThat(stub.requests()).hasSize(1);
         GroqStub.Request request = stub.requests().get(0);
@@ -353,7 +380,7 @@ class GroqServiceTest {
     private static String generation(int count, String status) {
         return JSON.writeValueAsString(Map.of("status", status, "questions", IntStream.range(0, count)
                 .mapToObj(i -> Map.of("content", "질문 " + i + "?", "sourceQuote", QUOTE,
-                        "intent", "근거 확인", "evaluationCriteria", List.of("조건 설명")))
+                        "intent", "근거 확인"))
                 .toList()));
     }
 }

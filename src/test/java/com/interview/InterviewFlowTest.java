@@ -67,6 +67,9 @@ class InterviewFlowTest {
              "summary":"적합한 이유를 설명했습니다.","followUpQuestion":null}
             """;
 
+    private static final String COMPREHENSIVE = FINAL.replace(",\"followUpQuestion\":null", "");
+    private static final List<String> AXES = List.of("기술적 정확성", "근거", "설명력");
+
     @TestConfiguration
     static class Config {
         @Bean GroqStub groqStub() throws IOException { return new GroqStub(); }
@@ -124,7 +127,7 @@ class InterviewFlowTest {
             assertThat(root.path("position").asInt()).isEqualTo(i + 1);
             assertThat(root.path("content").asString()).isEqualTo("선택 근거 " + (i + 1));
             assertThat(root.path("sourceQuote").asString()).isEqualTo(SOURCE);
-            assertThat(root.path("evaluationCriteria").get(0).asString()).isEqualTo("근거");
+            assertThat(root.path("evaluationCriteria")).isEqualTo(json.valueToTree(AXES));
             assertThat(root.path("intent").asString()).isEqualTo("이유 확인");
         }
 
@@ -152,7 +155,7 @@ class InterviewFlowTest {
         Counts pending = counts();
         answer(owner, sid, child, "성능 기준").andExpect(status().isBadGateway()); // 모델이 두 번째 꼬리를 요청
         assertThat(counts()).isEqualTo(pending);
-        stub.respondContent(FINAL);
+        stub.respondContent(COMPREHENSIVE);
         JsonNode combined = created(answer(owner, sid, child, "성능 기준"));
         context = lastContext();
         assertThat(context.path("originalAnswer").asString()).isEqualTo(FIRST);
@@ -194,7 +197,7 @@ class InterviewFlowTest {
         assertThat(pending.get(1).get("answers").size()).isZero();
 
         String additional = "  성능 기준과 요구사항\n";
-        stub.respondContent(FINAL);
+        stub.respondContent(COMPREHENSIVE);
         created(answer(token, sid, followUpId, additional));
         // Leave a different follow-up pending when the interview ends.
         stub.respondContent(INITIAL);
@@ -209,7 +212,7 @@ class InterviewFlowTest {
         assertThat(history.path("resume").path("createdAt").asString()).isNotBlank();
         assertThat(history.get("categoryName").isNull()).isTrue();
         assertThat(history.path("model").asString()).isEqualTo("openai/gpt-oss-120b");
-        assertThat(history.path("criteriaVersion").asString()).isEqualTo("resume-interview-v2");
+        assertThat(history.path("criteriaVersion").asString()).isEqualTo("resume-interview-v3");
         JsonNode rows = history.path("questions");
         assertThat(rows.size()).isEqualTo(7);
         List<Long> orderedIds = List.of(rootId, followUpId, secondId, pendingId,
@@ -220,7 +223,7 @@ class InterviewFlowTest {
             assertThat(rows.get(i).path("id").asLong()).isEqualTo(orderedIds.get(i));
             assertThat(rows.get(i).path("sourceQuote").asString()).isEqualTo(SOURCE);
             assertThat(rows.get(i).path("intent").asString()).isEqualTo("이유 확인");
-            assertThat(rows.get(i).path("evaluationCriteria").get(0).asString()).isEqualTo("근거");
+            assertThat(rows.get(i).path("evaluationCriteria")).isEqualTo(json.valueToTree(AXES));
         }
         assertThat(rows.get(0).path("position").asInt()).isEqualTo(1);
         assertThat(rows.get(0).get("parentQuestionId").isNull()).isTrue();
@@ -244,6 +247,30 @@ class InterviewFlowTest {
         assertThat(completed.path("questions")).isEqualTo(rows);
         answer(token, sid, pendingId, "완료 뒤 제출").andExpect(status().isBadRequest());
         assertThat(stub.requests()).hasSize(calls);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"resume-interview-v1", "resume-interview-v2"})
+    void evaluatesHistoricalFollowUpWithCurrentAxesWithoutRewritingHistory(String oldVersion) throws Exception {
+        JsonNode session = start();
+        long sid = session.path("id").asLong(), qid = firstId(session);
+        stub.respondContent(INITIAL);
+        var original = created(answer(owner, sid, qid, FIRST));
+        long child = original.path("followUpQuestion").path("id").asLong();
+        String oldCriteria = "[\"특정 명령을 사용해야 함\"]";
+        db.update("update sessions set criteria_version = ? where id = ?", oldVersion, sid);
+        db.update("update questions set evaluation_criteria = ? where id = ?", oldCriteria, qid);
+        db.update("update answers set criteria_version = ? where id = ?", oldVersion, original.path("id").asLong());
+        JsonNode before = ok(detail(owner, sid));
+        stub.respondContent(COMPREHENSIVE);
+        var combined = created(answer(owner, sid, child, "요구사항에 맞았기 때문입니다."));
+        assertThat(lastContext().at("/originalQuestion/evaluationCriteria")).isEqualTo(json.valueToTree(AXES));
+        assertThat(combined.path("criteriaVersion").asString()).isEqualTo("resume-interview-v3");
+        JsonNode after = ok(detail(owner, sid));
+        assertThat(after.path("criteriaVersion").asString()).isEqualTo(oldVersion);
+        assertThat(after.at("/questions/0/evaluationCriteria")).isEqualTo(json.readTree(oldCriteria));
+        assertThat(after.at("/questions/0/answers/0/criteriaVersion").asString()).isEqualTo(oldVersion);
+        assertThat(after.at("/questions/0")).isEqualTo(before.at("/questions/0"));
     }
 
     @Test
@@ -583,7 +610,7 @@ class InterviewFlowTest {
 
     private void serveFiveRoots() {
         var roots = IntStream.rangeClosed(1, 5).mapToObj(i -> Map.of("content", "선택 근거 " + i,
-                "sourceQuote", SOURCE, "intent", "이유 확인", "evaluationCriteria", List.of("근거"))).toList();
+                "sourceQuote", SOURCE, "intent", "이유 확인")).toList();
         stub.respondContent(json.writeValueAsString(Map.of("status", "OK", "questions", roots)));
     }
 
@@ -622,7 +649,7 @@ class InterviewFlowTest {
         assertThat(stored.path("evaluation")).isEqualTo(json.readTree(evaluation));
         assertThat(stored.path("evaluationStage").asString()).isEqualTo(stage);
         assertThat(stored.path("model").asString()).isEqualTo("openai/gpt-oss-120b");
-        assertThat(stored.path("criteriaVersion").asString()).isEqualTo("resume-interview-v2");
+        assertThat(stored.path("criteriaVersion").asString()).isEqualTo("resume-interview-v3");
     }
 
     private long legacySession(long ownerResume, long category) {

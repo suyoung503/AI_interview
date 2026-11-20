@@ -55,8 +55,7 @@ class GroqLiveTest {
     private static final GeneratedQuestion REDIS_QUESTION = new GeneratedQuestion(
             "로컬 캐시 대신 Redis를 선택한 이유와 그 선택이 요구사항에 맞는 근거를 설명해 주세요.",
             REDIS_EXPERIENCE, "선택을 정당화하고 대안을 비교하는지 확인",
-            List.of("공유 캐시와 인스턴스별 로컬 캐시의 차이",
-                    "일정과 팀 역량, 데이터 일관성, 장애 시 비용의 균형"));
+            List.of("기술적 정확성", "근거", "설명력"));
 
     @TestConfiguration
     static class Config {
