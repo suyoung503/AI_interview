@@ -1,8 +1,7 @@
 package com.interview.controller;
 
-import com.interview.dto.LoginResponse;
-import com.interview.dto.LoginRequest;
-import com.interview.dto.SignupRequest;
+import com.interview.dto.AuthModels.Credentials;
+import com.interview.dto.AuthModels.TokenResponse;
 import com.interview.service.AuthService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -20,12 +19,12 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/signup")
-    public ResponseEntity<LoginResponse> signup(@RequestBody SignupRequest request) {
+    public ResponseEntity<TokenResponse> signup(@RequestBody Credentials request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(authService.signup(request));
     }
 
     @PostMapping("/login")
-    public ResponseEntity<LoginResponse> login(@RequestBody LoginRequest request) {
+    public ResponseEntity<TokenResponse> login(@RequestBody Credentials request) {
         return ResponseEntity.ok(authService.login(request));
     }
 }

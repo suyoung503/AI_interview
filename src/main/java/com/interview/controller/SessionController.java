@@ -1,6 +1,6 @@
 package com.interview.controller;
 
-import com.interview.dto.SessionCreateRequest;
+import com.interview.dto.InterviewRequests.SessionCreateRequest;
 import com.interview.dto.SessionResponse;
 import com.interview.service.SessionService;
 import jakarta.validation.Valid;

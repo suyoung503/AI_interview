@@ -1,9 +1,9 @@
 package com.interview.service;
 
 import com.interview.dto.AnswerResponse;
+import com.interview.dto.InterviewRequests.SessionCreateRequest;
 import com.interview.dto.QuestionResponse;
 import com.interview.dto.ResumeResponse;
-import com.interview.dto.SessionCreateRequest;
 import com.interview.dto.SessionResponse;
 import com.interview.entity.Answer;
 import com.interview.entity.Question;
@@ -52,12 +52,6 @@ public class SessionService {
                 .stream()
                 .map(SessionResponse::new)
                 .toList();
-        // 2. 각 Session 엔티티를 SessionResponse DTO로 변환
-        //List<SessionResponse> result = new ArrayList<>();
-        //for (Session session : sessions) {
-        //    result.add(new SessionResponse(session));  // .map(SessionResponse::new) 가 이것
-        //}
-        //위 코드는 이걸 짧게 해서 stream map to List로 축약된거.
     }
 
     @Transactional(readOnly = true)

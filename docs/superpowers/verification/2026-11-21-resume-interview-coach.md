@@ -73,7 +73,7 @@
 - 미룬 경미 항목: 이력서 상세 비양수 ID는 404(세션 상세는400), 과거 점수 통계가 신규 평가도 읽은 뒤 제외하는 비용, 직렬화/긴 JVM 정지 후 타임아웃 오분류 가능성, 기준선 H2/Java 에이전트 경고. 저장 안전성과 정상 흐름에는 영향이 없다고 최종 리뷰에서 판단했다.
 - 계획/설계의 실수로 남았던 선행 `+` 표시는 정리했다. 기존 private application.yml은 로컬에서 보존하고 배포 JAR에서는 제외한다.
 
-## 실행한 최종 명령
+## v4 구현 당시 실행한 최종 명령
 
 ```bash
 env -u GROQ_API_KEY -u INTERVIEW_ENV_FILE ./mvnw -o \
@@ -85,7 +85,7 @@ env -u GROQ_API_KEY -u INTERVIEW_ENV_FILE ./mvnw -o \
 git diff --check
 ```
 
-위 v4 최종 전체 실행은 2026-11-21에 134통과/3건너뜀/실패0/오류0 및 BUILD SUCCESS였다. 패키징도 BUILD SUCCESS이며 JAR 검사에는 파일명 목록만 사용했다. 건너뛴 실호출 테스트를 통과로 세지 않았다. 실제 검증을 다시 실행할 권한은 이 명령에 포함되지 않는다.
+위 v4 최종 전체 실행은 2026-11-21에 134통과/3건너뜀/실패0/오류0 및 BUILD SUCCESS였다. 패키징도 BUILD SUCCESS이며 JAR 검사에는 파일명 목록만 사용했다. 건너뛴 실호출 테스트를 통과로 세지 않았다. 실제 검증을 다시 실행할 권한은 이 명령에 포함되지 않는다. 후속 코드 정리에서 테스트 설정은 `src/test/resources/application-test.yml`로, 남겨 둔 실제 AI 검증 및 보조 코드는 `com.interview.live`로 이동했다. 당시 증거와 집계는 그대로 보존한다.
 
 ## 구현 중 결정과 비용
 

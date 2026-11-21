@@ -1,4 +1,4 @@
-package com.interview;
+package com.interview.live;
 
 import com.interview.exception.CustomException;
 import com.interview.exception.ErrorCode;

@@ -79,11 +79,11 @@ AI 실패는 정상 피드백이나 임의 점수로 대체하지 않으며, 실
    fi
    mkdir -p config
    if [ ! -e config/application.yml ]; then
-     (set -C; cat src/main/resources/application.yml.example > config/application.yml)
+     (set -C; cat config/application.yml.example > config/application.yml)
    fi
    ```
 
-3. 로컬 편집기로 `.env`의 `MYSQL_ROOT_PASSWORD`, `JWT_SECRET`(32바이트 이상 무작위 값), `GROQ_API_KEY`를 설정합니다. `.env`는 암호화되지 않으므로 소유자만 읽도록 `chmod 600 .env`로 제한하세요. 실제 키를 채팅, 커밋, `.env.example`, 빌드 설정/이미지, 로그 또는 스크린샷에 넣지 마세요. 저장소의 `src/main/resources/application.yml`은 추적되므로 배포 JAR에서 제외되더라도 비밀값을 넣지 마세요.
+3. 로컬 편집기로 `.env`의 `MYSQL_ROOT_PASSWORD`, `JWT_SECRET`(32바이트 이상 무작위 값), `GROQ_API_KEY`를 설정합니다. `.env`는 암호화되지 않으므로 소유자만 읽도록 `chmod 600 .env`로 제한하세요. 실제 키를 채팅, 커밋, `.env.example`, 빌드 설정/이미지, 로그 또는 스크린샷에 넣지 마세요. `config/application.yml`은 Git 추적 대상이 아닙니다. 저장소에는 비밀값이 없는 `config/application.yml.example`만 둡니다.
 4. `.env`는 **실행 작업 디렉터리** 기준으로 Spring이 Java properties 파일로 읽습니다. 한 줄에 `이름=값`을 쓰고 따옴표, `export`, 인라인 주석, 쉘 확장은 쓰지 마세요. 줄 전체 주석은 `#`로 시작합니다. 쉘에서 `.env`를 실행하거나 `source`하지 않습니다. 이미 내보낸 같은 이름의 환경 변수가 로컬 파일보다 우선하므로, 예를 들어 내보낸 빈 `GROQ_API_KEY`도 파일 값을 덮을 수 있습니다. 선택적으로 `INTERVIEW_ENV_FILE`에 별도 파일 경로를 지정할 수 있습니다.
 5. **데이터가 없는 새 로컬 DB에만** 첫 실행에서 `SPRING_JPA_HIBERNATE_DDL_AUTO=update SPRING_SQL_INIT_MODE=always ./mvnw spring-boot:run`으로 테이블과 기존 카테고리 시드를 준비합니다. 이후에는 예제의 기본값(`validate`, SQL init `never`)으로 프로젝트 루트에서 `./mvnw spring-boot:run`을 실행합니다. **기존 데이터가 있다면 첫 실행 옵션을 사용하지 말고** 아래 마이그레이션 절차를 먼저 따르세요.
 
@@ -99,7 +99,7 @@ Spring을 실행한 뒤 브라우저에서 [http://localhost:8080/](http://local
 
 ### 배포 JAR와 Docker
 
-`./mvnw spring-boot:run`은 기존 클래스패스의 `src/main/resources/application.yml`을 계속 사용할 수 있지만, `./mvnw -DskipTests package`로 만든 배포 JAR에는 해당 파일을 넣지 않습니다. `java -jar`로 실행할 때는 런타임 환경 변수(`SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD`, `JWT_SECRET`, `JWT_EXPIRATION`[밀리초], `GROQ_API_KEY` 및 필요한 스키마·초기화 설정)를 주입하거나, 예제를 바탕으로 JAR 밖에 설정을 준비해 `--spring.config.additional-location=file:/absolute/path/application.yml`로 지정하세요. JAR도 작업 디렉터리의 `.env`를 읽을 수 있지만, 배포할 파일에는 비밀을 넣지 않고 실행 환경에서만 제공하세요.
+`./mvnw spring-boot:run`은 기존 로컬 `src/main/resources/application.yml`이 남아 있다면 계속 읽을 수 있지만, 이 파일은 Git과 배포 JAR에서 제외됩니다. 새 설정은 프로젝트 루트의 `config/application.yml`에 두세요. `java -jar`로 실행할 때는 런타임 환경 변수(`SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD`, `JWT_SECRET`, `JWT_EXPIRATION`[밀리초], `GROQ_API_KEY` 및 필요한 스키마·초기화 설정)를 주입하거나, 예제를 바탕으로 JAR 밖에 설정을 준비해 `--spring.config.additional-location=file:/absolute/path/application.yml`로 지정하세요. JAR도 작업 디렉터리의 `.env`를 읽을 수 있지만, 배포할 파일에는 비밀을 넣지 않고 실행 환경에서만 제공하세요.
 
 Docker 빌드 컨텍스트에는 Dockerfile과 새로 패키징한 `target/interview-0.0.1-SNAPSHOT.jar`만 허용됩니다. Compose는 루트 `.env` 값을 이미지에 복사하지 않고 컨테이너 실행 시 환경으로 전달합니다. 새 빈 MySQL 볼륨의 첫 시작에만 `SPRING_JPA_HIBERNATE_DDL_AUTO=update SPRING_SQL_INIT_MODE=always docker compose up --build`를 사용하세요. 기존 볼륨은 마이그레이션을 먼저 검증한 다음 기본 `docker compose up --build`를 사용합니다. 볼륨을 삭제하는 `down -v`는 기록을 보존해야 할 때 사용하지 마세요.
 
@@ -116,7 +116,7 @@ Docker 빌드 컨텍스트에는 Dockerfile과 새로 패키징한 `target/inter
 ./mvnw -o -DskipTests package
 ```
 
-Maven 캐시에 의존성이 아직 없다면 처음에는 `-o` 없이 내려받습니다. 일반 테스트에서는 실제 `.env`를 읽지 않고 Groq에 연결하지 않습니다. 별도 승인이 필요한 실검증과 1회 재현 진단은 기본 실행에서 건너뜁니다.
+Maven 캐시에 의존성이 아직 없다면 처음에는 `-o` 없이 내려받습니다. 일반 테스트에서는 실제 `.env`를 읽지 않고 Groq에 연결하지 않습니다. 테스트 설정은 `src/test/resources/application-test.yml`에만 있습니다. 별도 승인이 필요한 실제 AI 검증과 기술 교정 단발 프로브는 `src/test/java/com/interview/live/`에 있으며 기본 실행에서 건너뜁니다.
 
 ### 웹 검증과 로컬 미리보기
 
@@ -140,7 +140,7 @@ env -u GROQ_API_KEY -u INTERVIEW_ENV_FILE ./mvnw -o \
 
 ```bash
 env -u GROQ_API_KEY -u INTERVIEW_ENV_FILE ./mvnw -o -Dspring.profiles.active=test \
-  -Dtest=GroqLiveTest -Dgroq.live.confirmed=true -Dsurefire.rerunFailingTestsCount=0 \
+  -Dtest=com.interview.live.GroqLiveTest -Dgroq.live.confirmed=true -Dsurefire.rerunFailingTestsCount=0 \
   '-DargLine=-Djdk.httpclient.redirects.retrylimit=1 -Djdk.httpclient.disableRetryConnect=true -Djdk.httpclient.enableAllMethodRetry=false' test
 ```
 
@@ -149,6 +149,8 @@ H2와 JWT/MockMvc로 가상 이력서 등록→생성→원답→필요 시 꼬�
 
 ## 최종 검증 기록
 
-2026-11-21 기준 v4 자동화는 **134개 통과**, 명시적 실호출 3개는 기본 비활성으로 건너뜁니다. 실제 검증은 **v3 전체 흐름 6회와 v4 기술 교정 단발 1회**를 구분하며, 조사 과정까지 합쳐 승인된 Groq 호출 15회를 사용했습니다. v4가 전체 흐름을 실모델로 다시 통과했다거나 AI 피드백이 항상 정확하다고 주장하지 않습니다.
+2026-11-21 코드·경로 정리 후 Maven 기본 회귀 **140건 통과 / 20건 건너뜀**, Node 웹 테스트 **11건 통과**, 일회용 MySQL 8 통합 검사 **39건 통과**를 확인했습니다. 배포 JAR에서 테스트·개인 YAML이 제외되었고, 이 정리에서 실제 Groq를 호출하지 않았습니다.
+
+2026-11-21 v4 구현 당시 자동화는 **134개 통과**, 명시적 실호출 3개는 기본 비활성으로 건너뜁니다. 실제 검증은 **v3 전체 흐름 6회와 v4 기술 교정 단발 1회**를 구분하며, 조사 과정까지 합쳐 승인된 Groq 호출 15회를 사용했습니다. v4가 전체 흐름을 실모델로 다시 통과했다거나 AI 피드백이 항상 정확하다고 주장하지 않습니다.
 
 [요구사항별 증거·남은 한계·안전한 합성 결과](docs/superpowers/verification/2026-11-21-resume-interview-coach.md)를 확인하세요. 운영 MySQL 적용과 Docker 배포는 검증하지 않았습니다.

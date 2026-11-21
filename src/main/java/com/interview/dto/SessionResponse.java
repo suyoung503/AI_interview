@@ -36,7 +36,7 @@ public class SessionResponse {
     public SessionResponse(Session session, List<QuestionResponse> questions) {
         this(session, questions, null);
     }
-// this로 위에 호출하되 question에 null들어가게 한거같음.
+
     public SessionResponse(Session session) {
         this(session, null);
     }

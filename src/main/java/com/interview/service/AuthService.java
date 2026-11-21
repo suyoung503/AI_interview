@@ -1,8 +1,7 @@
 package com.interview.service;
 
-import com.interview.dto.LoginResponse;
-import com.interview.dto.LoginRequest;
-import com.interview.dto.SignupRequest;
+import com.interview.dto.AuthModels.Credentials;
+import com.interview.dto.AuthModels.TokenResponse;
 import com.interview.entity.User;
 import com.interview.exception.CustomException;
 import com.interview.exception.ErrorCode;
@@ -22,7 +21,7 @@ public class AuthService {
     private final JwtTokenProvider jwtTokenProvider;
 
     @Transactional
-    public LoginResponse signup(SignupRequest request) {
+    public TokenResponse signup(Credentials request) {
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new CustomException(ErrorCode.EMAIL_ALREADY_EXISTS);
         }
@@ -33,11 +32,11 @@ public class AuthService {
                 .build();
         userRepository.save(user);
 
-        return new LoginResponse(jwtTokenProvider.generateToken(user.getEmail()));
+        return new TokenResponse(jwtTokenProvider.generateToken(user.getEmail()));
     }
 
     @Transactional(readOnly = true)
-    public LoginResponse login(LoginRequest request) {
+    public TokenResponse login(Credentials request) {
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new CustomException(ErrorCode.INVALID_CREDENTIALS));
 
@@ -45,6 +44,6 @@ public class AuthService {
             throw new CustomException(ErrorCode.INVALID_CREDENTIALS);
         }
 
-        return new LoginResponse(jwtTokenProvider.generateToken(user.getEmail()));
+        return new TokenResponse(jwtTokenProvider.generateToken(user.getEmail()));
     }
 }

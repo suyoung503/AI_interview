@@ -1,7 +1,7 @@
 package com.interview.service;
 
 import com.interview.dto.AnswerResponse;
-import com.interview.dto.AnswerSubmitRequest;
+import com.interview.dto.InterviewRequests.AnswerSubmitRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 

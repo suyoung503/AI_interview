@@ -1,6 +1,6 @@
 package com.interview.controller;
 
-import com.interview.dto.ResumeCreateRequest;
+import com.interview.dto.InterviewRequests.ResumeCreateRequest;
 import com.interview.dto.ResumeResponse;
 import com.interview.exception.CustomException;
 import com.interview.exception.ErrorCode;

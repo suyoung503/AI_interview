@@ -1,10 +1,10 @@
 package com.interview.service;
 
 import com.interview.dto.AnswerResponse;
-import com.interview.dto.AnswerSubmitRequest;
 import com.interview.dto.InterviewAiModels.Evaluation;
 import com.interview.dto.InterviewAiModels.EvaluationContext;
 import com.interview.dto.InterviewAiModels.GeneratedQuestion;
+import com.interview.dto.InterviewRequests.AnswerSubmitRequest;
 import com.interview.dto.QuestionResponse;
 import com.interview.dto.SessionResponse;
 import com.interview.entity.Answer;

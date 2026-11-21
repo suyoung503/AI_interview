@@ -1,6 +1,6 @@
 package com.interview.service;
 
-import com.interview.dto.ResumeCreateRequest;
+import com.interview.dto.InterviewRequests.ResumeCreateRequest;
 import com.interview.dto.ResumeResponse;
 import com.interview.entity.Resume;
 import com.interview.entity.User;

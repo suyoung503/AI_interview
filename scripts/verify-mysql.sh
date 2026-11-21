@@ -48,5 +48,5 @@ export MYSQL_VERIFICATION_USERNAME="$username" MYSQL_VERIFICATION_PASSWORD="$pas
 env -u GROQ_API_KEY -u INTERVIEW_ENV_FILE ./mvnw "$@" \
     -Dspring.profiles.active=test \
     '-Dspring.config.location=classpath:application.properties,classpath:application-test.yml' \
-    -Dgroq.live.confirmed=false -Dgroq.followup.diagnostic.confirmed=false \
+    -Dgroq.live.confirmed=false \
     -Dgroq.technical.probe.confirmed=false -Dtest=MySqlIntegrationTest test

@@ -1,7 +1,7 @@
 package com.interview.controller;
 
 import com.interview.dto.AnswerResponse;
-import com.interview.dto.AnswerSubmitRequest;
+import com.interview.dto.InterviewRequests.AnswerSubmitRequest;
 import com.interview.service.AnswerService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;

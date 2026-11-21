@@ -1,4 +1,4 @@
-package com.interview;
+package com.interview.live;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.interview.exception.AiProviderException;
