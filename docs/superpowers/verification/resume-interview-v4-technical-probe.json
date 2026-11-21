@@ -1,0 +1,15 @@
+{
+  "model" : "openai/gpt-oss-120b",
+  "criteriaVersion" : "resume-interview-v4",
+  "evaluation" : {
+    "technicalAccuracy" : "INCORRECT",
+    "reasoning" : "INVALID",
+    "clarity" : "UNCLEAR",
+    "strengths" : [ ],
+    "improvements" : [ "JVM 내부 로컬 캐시가 서버 간 힙을 자동으로 동기화한다는 주장은 사실과 다릅니다.", "Redis 캐시 키가 영원히 만료되지 않는다는 설명은 Redis가 TTL을 지원한다는 사실에 반합니다.", "Redis를 선택한 구체적인 이유(일관성, 확장성, 성능, 분산 캐시 관리 등)에 대한 근거가 전혀 제시되지 않았습니다.", "TTL 설계와 같은 요구사항과 직접적인 연관성을 설명하지 않아 선택 정당화가 부족합니다.", "대안(예: 로컬 캐시, 다른 분산 캐시)과 비교 분석이 없으며, 장단점 평가가 없습니다." ],
+    "uncertainties" : [ ],
+    "summary" : "기술적 정확성: 오류 있음. 근거: 타당하지 않음. 설명력: 불명확함.",
+    "followUpQuestion" : "Redis를 선택한 구체적인 이유와 로컬 캐시와 비교했을 때 일관성, 확장성, 성능, TTL 관리 측면에서 어떤 장점이 있는지 자세히 설명해 주시겠어요?"
+  },
+  "attempts" : 1
+}

@@ -117,3 +117,10 @@ env -u GROQ_API_KEY -u INTERVIEW_ENV_FILE ./mvnw -o -Dspring.profiles.active=tes
 ```
 
 H2와 JWT/MockMvc로 가상 이력서 등록→생성→원답→필요 시 꼬리 답변→기록 조회·완료를 검증하고, 같은 Redis 질문에 비정석이지만 타당한 답변·근거 부족·명백한 오류를 비교합니다. 실요청 사이에는 65초를 두고 오류가 발생하면 즉시 멈춥니다. 같은 승인으로 재실행하지 마세요. `target/groq-live-evidence.json`에서 `completed`는 전체 절차 종료 여부입니다. 꼬리 답변의 실제 종합 평가는 `comprehensiveEvaluationPerformed: true`와 `followUpAnswer`에서 확인하세요. 꼬리가 없으면 절차가 끝나도 종합 평가는 검증되지 않은 것입니다. 질문의 관련성·평가의 정확성과 세 가지 답변의 구분은 사람이 검토해야 합니다. HTTP 성공이나 JSON 형식 검사만으로 평가 품질이 확인되는 것은 아닙니다.
+
+
+## 최종 검증 기록
+
+2026-11-21 기준 v4 자동화는 **134개 통과**, 명시적 실호출 3개는 기본 비활성으로 건너뜁니다. 실제 검증은 **v3 전체 흐름 6회와 v4 기술 교정 단발 1회**를 구분하며, 조사 과정까지 합쳐 승인된 Groq 호출 15회를 사용했습니다. v4가 전체 흐름을 실모델로 다시 통과했다거나 AI 피드백이 항상 정확하다고 주장하지 않습니다.
+
+[요구사항별 증거·남은 한계·안전한 합성 결과](docs/superpowers/verification/2026-11-21-resume-interview-coach.md)를 확인하세요. 운영 MySQL 적용과 Docker 배포는 검증하지 않았습니다.
