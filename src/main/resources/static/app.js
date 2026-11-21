@@ -327,7 +327,7 @@ function answerForm(session, question) {
     submit.id = `submit-${question.id}`;
     const form = formWith(() => run('답변을 평가하는 중…', async (current) => {
         await api.request('/api/answers', 'POST',
-            { sessionId: session.id, questionId: question.id, userAnswer: current.drafts.get(draftKey) });
+            { sessionId: session.id, questionId: question.id, userAnswer: current.drafts.get(draftKey) }, { expectJson: false });
         current.accepted.add(draftKey);
         current.drafts.delete(draftKey);
         await loadSession(current, session.id);
@@ -419,7 +419,7 @@ function evaluationCard(answer, index, total) {
 
 function finish(session) {
     run('면접을 완료하는 중…', async (current) => {
-        await api.request(`/api/sessions/${session.id}/done`, 'PATCH');
+        await api.request(`/api/sessions/${session.id}/done`, 'PATCH', undefined, { expectJson: false });
         current.session = { ...current.session, status: 'DONE' };
         await loadSession(current, session.id);
     }, {

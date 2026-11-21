@@ -99,3 +99,58 @@ test('ignores an old response if the account changes while its JSON body is bein
     await assert.rejects(late, StaleResponse);
     assert.equal(api.signedIn, true);
 });
+
+for (const path of ['/api/resumes', '/api/sessions']) {
+    test(`rejects a truncated successful list response at ${path} and allows manual reload`, async () => {
+        let calls = 0;
+        const previous = [{ id: 1 }];
+        let rows = previous;
+        const api = createApi(async (url) => {
+            if (url === '/api/auth/login') return token('jwt');
+            assert.equal(url, path);
+            return ++calls === 1 ? new Response('[') : Response.json([{ id: 2 }]);
+        });
+        await api.authenticate('login', {});
+        const reload = async () => { rows = await api.request(path); };
+        await assert.rejects(reload(), { name: 'ApiError', status: 200 });
+        assert.equal(rows, previous);
+        assert.equal(calls, 1);
+        await reload();
+        assert.deepEqual(rows, [{ id: 2 }]);
+        assert.equal(calls, 2);
+    });
+}
+
+test('authentication and create requests require readable JSON success bodies', async () => {
+    let loginAttempts = 0;
+    const broken = (status) => ({ ok: true, status, json: async () => { throw new TypeError('stream interrupted'); } });
+    const api = createApi(async (url) => {
+        if (url === '/api/auth/login') return ++loginAttempts === 1 ? broken(200) : token('jwt');
+        return broken(201);
+    });
+    await assert.rejects(api.authenticate('login', {}), { name: 'ApiError', status: 200 });
+    assert.equal(api.signedIn, false);
+    await api.authenticate('login', {});
+    for (const path of ['/api/resumes', '/api/sessions']) {
+        await assert.rejects(api.request(path, 'POST', {}), { name: 'ApiError', status: 201 });
+    }
+    assert.equal(api.signedIn, true);
+});
+
+test('accepted answer and completion writes do not depend on their response bodies', async () => {
+    const calls = [];
+    let reads = 0;
+    const api = createApi(async (url, options) => {
+        if (url === '/api/auth/login') return token('jwt');
+        calls.push([url, options.method]);
+        return {
+            ok: true, status: url === '/api/answers' ? 201 : 200,
+            json: async () => { reads++; throw new TypeError('stream interrupted'); }
+        };
+    });
+    await api.authenticate('login', {});
+    await api.request('/api/answers', 'POST', {}, { expectJson: false });
+    await api.request('/api/sessions/1/done', 'PATCH', undefined, { expectJson: false });
+    assert.deepEqual(calls, [['/api/answers', 'POST'], ['/api/sessions/1/done', 'PATCH']]);
+    assert.equal(reads, 0);
+});

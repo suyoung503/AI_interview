@@ -21,7 +21,7 @@ export function createApi(fetcher = globalThis.fetch.bind(globalThis)) {
         generation++;
     }
 
-    async function send(path, method, body, protectedRequest, expected) {
+    async function send(path, method, body, protectedRequest, expected, expectJson = true) {
         const headers = { Accept: 'application/json' };
         if (body !== undefined) headers['Content-Type'] = 'application/json';
         if (protectedRequest) headers.Authorization = `Bearer ${token}`;
@@ -37,10 +37,15 @@ export function createApi(fetcher = globalThis.fetch.bind(globalThis)) {
             throw new ApiError(0, '서버에 연결하지 못했습니다. 연결을 확인해 주세요.');
         }
         check();
+        if (response.ok && !expectJson) return;
         let data;
         try {
             data = await response.json();
         } catch {
+            check();
+            if (response.ok) {
+                throw new ApiError(response.status, '서버 응답을 읽지 못했습니다. 이력서 또는 면접 기록에서 처리 결과를 먼저 확인해 주세요.');
+            }
             // Authentication failures may have an empty body.
         }
         check();
@@ -68,9 +73,9 @@ export function createApi(fetcher = globalThis.fetch.bind(globalThis)) {
             }
             token = data.token;
         },
-        async request(path, method = 'GET', body) {
+        async request(path, method = 'GET', body, { expectJson = true } = {}) {
             if (!token) throw new StaleResponse();
-            return send(path, method, body, true, generation);
+            return send(path, method, body, true, generation, expectJson);
         }
     };
 }
