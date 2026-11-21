@@ -116,6 +116,8 @@
 					<forceCreation>true</forceCreation>
 					<excludes>
 						<exclude>application.yml</exclude>
+						<exclude>application-test.yml</exclude>
+						<exclude>application.yml.example</exclude>
 					</excludes>
 				</configuration>
 			</plugin>

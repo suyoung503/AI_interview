@@ -111,8 +111,11 @@ Docker 빌드 컨텍스트에는 Dockerfile과 새로 패키징한 `target/inter
 
 ## 테스트
 
+경로 정리 이전 버전에서 이미 빌드했다면, 업데이트 후 최초 테스트·패키징 전에 `./mvnw -o clean`을 한 번 실행하세요. 이전 클래스와 설정이 남는 것을 막기 위한 조치입니다. `clean`은 `target/` 전체를 삭제하므로 필요한 스크린샷·검증 로그는 먼저 `target/` 밖에 복사하세요.
+
 ```bash
-./mvnw -o -Dspring.profiles.active=test test
+./mvnw -o -Dspring.profiles.active=test \
+  '-Dspring.config.location=classpath:application.properties,classpath:application-test.yml' test
 ./mvnw -o -DskipTests package
 ```
 
