@@ -87,6 +87,16 @@ AI 실패는 정상 피드백이나 임의 점수로 대체하지 않으며, 실
 4. `.env`는 **실행 작업 디렉터리** 기준으로 Spring이 Java properties 파일로 읽습니다. 한 줄에 `이름=값`을 쓰고 따옴표, `export`, 인라인 주석, 쉘 확장은 쓰지 마세요. 줄 전체 주석은 `#`로 시작합니다. 쉘에서 `.env`를 실행하거나 `source`하지 않습니다. 이미 내보낸 같은 이름의 환경 변수가 로컬 파일보다 우선하므로, 예를 들어 내보낸 빈 `GROQ_API_KEY`도 파일 값을 덮을 수 있습니다. 선택적으로 `INTERVIEW_ENV_FILE`에 별도 파일 경로를 지정할 수 있습니다.
 5. **데이터가 없는 새 로컬 DB에만** 첫 실행에서 `SPRING_JPA_HIBERNATE_DDL_AUTO=update SPRING_SQL_INIT_MODE=always ./mvnw spring-boot:run`으로 테이블과 기존 카테고리 시드를 준비합니다. 이후에는 예제의 기본값(`validate`, SQL init `never`)으로 프로젝트 루트에서 `./mvnw spring-boot:run`을 실행합니다. **기존 데이터가 있다면 첫 실행 옵션을 사용하지 말고** 아래 마이그레이션 절차를 먼저 따르세요.
 
+### 브라우저에서 면접 연습
+
+Spring을 실행한 뒤 브라우저에서 [http://localhost:8080/](http://localhost:8080/)을 엽니다. 웹 화면은 같은 서버에서 제공되며 프런트엔드 빌드는 필요하지 않습니다.
+
+1. 회원가입 또는 로그인 후 이력서 텍스트(최대 20,000자)를 저장하거나, 저장한 이력서를 선택합니다.
+2. **면접 시작**을 눌러 이력서 기반 기본 질문 5개를 생성합니다. 질문을 선택하고 답변을 제출하면 평가가 표시됩니다. 꼬리 질문이 나타나면 같은 화면에서 이어서 답변할 수 있습니다.
+3. **면접 기록**에서 진행 중인 면접을 이어서 연습하거나 완료한 평가를 읽을 수 있습니다. 완료한 면접에는 답변을 추가할 수 없습니다.
+
+토큰과 미제출 초안은 현재 탭의 메모리에만 있으므로 새로고침이나 로그아웃 시 사라집니다. 제출 요청이 실패하는 동안에는 현재 탭에서 초안을 유지합니다. 답변은 저장됐지만 조회에 실패했다면 재제출 대신 **기록 새로 불러오기**를 누르세요. 이력서와 답변은 서버에 저장되고, 질문 생성과 평가에는 AI 서비스가 사용됩니다. 연락처·기밀 같은 민감한 정보는 넣지 마세요.
+
 ### 배포 JAR와 Docker
 
 `./mvnw spring-boot:run`은 기존 클래스패스의 `src/main/resources/application.yml`을 계속 사용할 수 있지만, `./mvnw -DskipTests package`로 만든 배포 JAR에는 해당 파일을 넣지 않습니다. `java -jar`로 실행할 때는 런타임 환경 변수(`SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD`, `JWT_SECRET`, `JWT_EXPIRATION`[밀리초], `GROQ_API_KEY` 및 필요한 스키마·초기화 설정)를 주입하거나, 예제를 바탕으로 JAR 밖에 설정을 준비해 `--spring.config.additional-location=file:/absolute/path/application.yml`로 지정하세요. JAR도 작업 디렉터리의 `.env`를 읽을 수 있지만, 배포할 파일에는 비밀을 넣지 않고 실행 환경에서만 제공하세요.
@@ -107,6 +117,24 @@ Docker 빌드 컨텍스트에는 Dockerfile과 새로 패키징한 `target/inter
 ```
 
 Maven 캐시에 의존성이 아직 없다면 처음에는 `-o` 없이 내려받습니다. 일반 테스트에서는 실제 `.env`를 읽지 않고 Groq에 연결하지 않습니다. 별도 승인이 필요한 실검증과 1회 재현 진단은 기본 실행에서 건너뜁니다.
+
+### 웹 검증과 로컬 미리보기
+
+```bash
+node --experimental-default-type=module --test web-tests/*.test.mjs
+env -u GROQ_API_KEY -u INTERVIEW_ENV_FILE ./mvnw -o \
+  -Dspring.profiles.active=test \
+  '-Dspring.config.location=classpath:application.properties,classpath:application-test.yml' \
+  -Dtest=WebAccessTest test
+```
+
+웹 미리보기에는 Python 3과 **수동 마이그레이션이 끝난, 버려도 되는 루프백 MySQL 검증 DB**가 필요합니다. 위 Spring 테스트를 실행한 뒤 `MYSQL_VERIFICATION_URL=jdbc:mysql://127.0.0.1:<포트>/ai_interview_verify_<이름>` 및 전용 DB의 `MYSQL_VERIFICATION_USERNAME`, `MYSQL_VERIFICATION_PASSWORD`를 환경에 주입하고 `scripts/preview-web.sh`를 실행하세요. 운영 DB나 운영 자격 증명을 사용하지 마세요.
+
+[http://127.0.0.1:18080/](http://127.0.0.1:18080/)에서 가상의 계정과 이력서로 연습할 수 있습니다. 로컬 HTTP 스텁은 첫 답변에 꼬리 질문을, 꼬리 답변에 종합 평가를 반환합니다. 답변에 `[오류테스트]`를 넣으면 평가가 실패하고, `[느린테스트]`를 넣으면 응답이 늦어집니다. 저장 후 상세 조회만 실패하는 경우를 확인하려면, 답변을 제출하기 직전에 프로젝트 루트에서 `touch target/preview-fail-next-detail`을 실행하세요. 스텁은 다음 면접 상세 GET만 실패시키며 표시 파일을 제거합니다. 실제 Groq 요청은 발생하지 않으며 미리보기는 배포 JAR에 포함되지 않습니다. 종료는 Ctrl+C입니다.
+
+[웹 검증 기록](docs/superpowers/verification/2026-11-21-web.md)의 스크린샷 경로는 검증을 실행한 로컬의 `target/` 아래이며 저장소에는 포함되지 않습니다.
+
+### 별도 승인 후 실제 AI 검증
 
 무료 플랜과 해당 모델 접근을 확인했고 **가상 데이터의 외부 전송 및 최대 6회 요청을 명시적으로 허용하는 경우에만**, 프로젝트 루트에서 아래 명령을 한 번 실행하세요. 키는 확인한 조직의 것을 사용하세요. 이 명령은 키를 인자로 받지 않으며, 다른 환경 변수가 덮어쓰지 않도록 프로젝트 루트의 `.env`를 사용합니다.
 
