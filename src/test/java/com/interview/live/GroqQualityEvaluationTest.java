@@ -98,8 +98,42 @@ class GroqQualityEvaluationTest {
         }
     }
 
+    @Test
+    void cooldownStartsAfterSuccessEvenIfReservationStalledAndWallClockJumped(@TempDir Path dir) throws Exception {
+        var p = new Phase(dir, "before", HASH);
+        p.start();
+        long[] elapsed = {0}, wall = {100_000};
+        p.awaitAndReserve(0, millis -> elapsed[0] += millis, () -> wall[0]);
+        assertThat(elapsed[0]).isZero();
+        elapsed[0] += 60_000; // Process paused after reservation, before sending the first request.
+        wall[0] += 3_600_000;
+        p.record(0, true, Map.of());
+        long previousSuccess = elapsed[0];
+        p.awaitAndReserve(1, millis -> elapsed[0] += millis, () -> wall[0]);
+        assertThat(elapsed[0] - previousSuccess).isGreaterThanOrEqualTo(65_000);
+    }
+
+    @Test
+    void afterWaitsFullIntervalAndInterruptionLeavesNoReservation(@TempDir Path dir) throws Exception {
+        var before = new Phase(dir, "before", HASH);
+        before.start();
+        for (int i = 0; i < 10; i++) {
+            before.reserve(i, 100_000 + i * 65_000L);
+            before.record(i, true, Map.of());
+        }
+        var after = new Phase(dir, "after", HASH);
+        after.start();
+        assertThatThrownBy(() -> after.awaitAndReserve(0, millis -> {
+            assertThat(millis).isEqualTo(65_000);
+            throw new InterruptedException();
+        }, () -> Long.MAX_VALUE)).isInstanceOf(InterruptedException.class);
+        assertThat(after.file("0.attempt")).doesNotExist();
+    }
+
     // A run holds the directory lock throughout. CREATE_NEW, fsync'd markers survive a failed JVM:
     // even an interrupted phase with no completed response cannot be restarted.
+    interface Sleeper { void sleep(long millis) throws InterruptedException; }
+
     record Phase(Path dir, String name, String hash) {
         Phase {
             if (!Set.of("before", "after").contains(name)) throw new IllegalArgumentException("잘못된 단계");
@@ -120,6 +154,13 @@ class GroqQualityEvaluationTest {
             if (index == 0 && name.equals("before")) return 0;
             Path previous = index == 0 ? dir.resolve("before-9.attempt") : file((index - 1) + ".attempt");
             return Math.addExact(Long.parseLong(Files.readString(previous)), 65_000);
+        }
+        void awaitAndReserve(int index, Sleeper sleeper, java.util.function.LongSupplier wallClock) throws Exception {
+            // Called only after start() under the lock, or after the previous response is persisted.
+            // A relative sleep does not depend on the previous process's wall clock.
+            if (index != 0 || name.equals("after")) sleeper.sleep(65_000);
+            if (Thread.currentThread().isInterrupted()) throw new InterruptedException();
+            reserve(index, wallClock.getAsLong());
         }
         void reserve(int index, long now) throws Exception {
             require(index >= 0 && index < 10 && Files.readString(file("started")).equals(hash));
@@ -171,9 +212,7 @@ class GroqQualityEvaluationTest {
             p.start();
             for (int i = 0; i < cases.size(); i++) {
                 var sample = cases.get(i);
-                long delay = p.nextTime(i) - System.currentTimeMillis();
-                if (delay > 0) Thread.sleep(delay);
-                p.reserve(i, System.currentTimeMillis());
+                p.awaitAndReserve(i, Thread::sleep, System::currentTimeMillis);
                 System.out.printf("START %s %s%n", p.name(), sample.id());
                 Evaluation result;
                 try {
