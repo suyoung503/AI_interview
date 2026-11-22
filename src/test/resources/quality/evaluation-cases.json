@@ -1,0 +1,424 @@
+{
+  "cases": [
+    {
+      "id": "cache-order",
+      "title": "캐시 조회 순서",
+      "context": {
+        "originalQuestion": {
+          "content": "조회 순서와 만료 시간의 선택 근거는 무엇인가요?",
+          "sourceQuote": "상품 목록에 조회 캐시를 적용했습니다.",
+          "intent": "조회 순서와 만료 시간의 선택 근거는 무엇인가요?",
+          "evaluationCriteria": [
+            "기술적 정확성",
+            "근거",
+            "설명력"
+          ]
+        },
+        "originalAnswer": "우선 캐시를 조회합니다. 없으면 DB에서 읽어 캐시에 넣고 반환합니다. 만료 시간은 30초입니다.",
+        "initialEvaluation": null,
+        "followUpQuestion": null,
+        "followUpAnswer": null
+      },
+      "expected": {
+        "technicalAccuracy": [
+          "CORRECT"
+        ],
+        "reasoning": [
+          "INSUFFICIENT"
+        ],
+        "clarity": [
+          "CLEAR"
+        ]
+      },
+      "coveredFacts": [
+        "적중과 미적중 경로, 30초 설정"
+      ],
+      "requiredFeedback": [
+        "30초를 정한 신선도 또는 부하 기준"
+      ],
+      "forbiddenFeedback": [
+        "조회 순서나 만료 시간 값의 재설명"
+      ]
+    },
+    {
+      "id": "retry-order",
+      "title": "재시도 횟수",
+      "context": {
+        "originalQuestion": {
+          "content": "실패 후 처리 흐름과 횟수 제한 근거는 무엇인가요?",
+          "sourceQuote": "가상 배송 조회에 재시도를 추가했습니다.",
+          "intent": "실패 후 처리 흐름과 횟수 제한 근거는 무엇인가요?",
+          "evaluationCriteria": [
+            "기술적 정확성",
+            "근거",
+            "설명력"
+          ]
+        },
+        "originalAnswer": "조회가 시간 초과되면 1초 뒤 한 번 더 조회하고, 또 실패하면 오류를 반환합니다.",
+        "initialEvaluation": null,
+        "followUpQuestion": null,
+        "followUpAnswer": null
+      },
+      "expected": {
+        "technicalAccuracy": [
+          "CORRECT"
+        ],
+        "reasoning": [
+          "INSUFFICIENT"
+        ],
+        "clarity": [
+          "CLEAR"
+        ]
+      },
+      "coveredFacts": [
+        "대기·한 번 재시도·종료 순서"
+      ],
+      "requiredFeedback": [
+        "대기 시간이나 횟수를 정한 이유"
+      ],
+      "forbiddenFeedback": [
+        "이미 제시한 종료 조건의 재설명"
+      ]
+    },
+    {
+      "id": "bounded-choice",
+      "title": "운영 제약에 맞춘 선택",
+      "context": {
+        "originalQuestion": {
+          "content": "알림 작업을 DB 폴링한 이유는 무엇인가요?",
+          "sourceQuote": "소규모 예약 알림을 운영했습니다.",
+          "intent": "알림 작업을 DB 폴링한 이유는 무엇인가요?",
+          "evaluationCriteria": [
+            "기술적 정확성",
+            "근거",
+            "설명력"
+          ]
+        },
+        "originalAnswer": "분당 두 건이고 1분 지연이 허용됐습니다. 기존 DB에서 30초마다 미전송 건을 찾아 처리했습니다. 운영자가 한 명이라 별도 브로커 운영을 피했습니다.",
+        "initialEvaluation": null,
+        "followUpQuestion": null,
+        "followUpAnswer": null
+      },
+      "expected": {
+        "technicalAccuracy": [
+          "CORRECT"
+        ],
+        "reasoning": [
+          "SUFFICIENT"
+        ],
+        "clarity": [
+          "CLEAR"
+        ]
+      },
+      "coveredFacts": [
+        "낮은 빈도·허용 지연·운영 인력 제약"
+      ],
+      "requiredFeedback": [],
+      "forbiddenFeedback": [
+        "브로커가 없다는 이유로 감점하거나 추가 질문"
+      ]
+    },
+    {
+      "id": "familiarity",
+      "title": "익숙함만 제시",
+      "context": {
+        "originalQuestion": {
+          "content": "검색엔진 선택이 이 서비스에 맞았던 이유는 무엇인가요?",
+          "sourceQuote": "검색 색인을 구성했습니다.",
+          "intent": "검색엔진 선택이 이 서비스에 맞았던 이유는 무엇인가요?",
+          "evaluationCriteria": [
+            "기술적 정확성",
+            "근거",
+            "설명력"
+          ]
+        },
+        "originalAnswer": "제가 익숙해서 골랐습니다.",
+        "initialEvaluation": null,
+        "followUpQuestion": null,
+        "followUpAnswer": null
+      },
+      "expected": {
+        "technicalAccuracy": [
+          "NOT_ASSESSABLE"
+        ],
+        "reasoning": [
+          "INSUFFICIENT"
+        ],
+        "clarity": [
+          "CLEAR"
+        ]
+      },
+      "coveredFacts": [
+        "본인의 익숙함 언급"
+      ],
+      "requiredFeedback": [
+        "서비스 요구와 기술 선택의 연결"
+      ],
+      "forbiddenFeedback": [
+        "익숙하다는 사실 자체를 기술 오류로 지적"
+      ]
+    },
+    {
+      "id": "transaction-error",
+      "title": "롤백 범위 오류",
+      "context": {
+        "originalQuestion": {
+          "content": "DB 롤백 시 이미 발송된 문자는 어떻게 되나요?",
+          "sourceQuote": "주문 저장과 외부 문자 발송을 구현했습니다.",
+          "intent": "DB 롤백 시 이미 발송된 문자는 어떻게 되나요?",
+          "evaluationCriteria": [
+            "기술적 정확성",
+            "근거",
+            "설명력"
+          ]
+        },
+        "originalAnswer": "DB 트랜잭션 안에서 발송했으므로 롤백하면 고객에게 도착한 문자도 취소됩니다.",
+        "initialEvaluation": null,
+        "followUpQuestion": null,
+        "followUpAnswer": null
+      },
+      "expected": {
+        "technicalAccuracy": [
+          "INCORRECT"
+        ],
+        "reasoning": [
+          "INVALID"
+        ],
+        "clarity": [
+          "CLEAR"
+        ]
+      },
+      "coveredFacts": [
+        "이미 발송 완료된 문자를 전제"
+      ],
+      "requiredFeedback": [
+        "DB 롤백이 외부 발송을 취소하지 못한다는 교정"
+      ],
+      "forbiddenFeedback": [
+        "조건이 모호하다며 기술 오류를 회피"
+      ]
+    },
+    {
+      "id": "unknown",
+      "title": "측정치 모름",
+      "context": {
+        "originalQuestion": {
+          "content": "최적화가 p95 지연을 얼마나 줄였고 어떻게 확인했나요?",
+          "sourceQuote": "가상 보고서 조회를 최적화했습니다.",
+          "intent": "최적화가 p95 지연을 얼마나 줄였고 어떻게 확인했나요?",
+          "evaluationCriteria": [
+            "기술적 정확성",
+            "근거",
+            "설명력"
+          ]
+        },
+        "originalAnswer": "p95는 측정하지 않아 얼마나 줄었는지 모릅니다.",
+        "initialEvaluation": null,
+        "followUpQuestion": null,
+        "followUpAnswer": null
+      },
+      "expected": {
+        "technicalAccuracy": [
+          "NOT_ASSESSABLE"
+        ],
+        "reasoning": [
+          "INSUFFICIENT"
+        ],
+        "clarity": [
+          "CLEAR"
+        ]
+      },
+      "coveredFacts": [
+        "측정하지 않았음을 명시"
+      ],
+      "requiredFeedback": [
+        "효과를 검증할 비교 측정 필요"
+      ],
+      "forbiddenFeedback": [
+        "모른다는 말 자체를 허위나 기술 오류로 판정"
+      ]
+    },
+    {
+      "id": "new-detail",
+      "title": "이력서 밖의 유효 근거",
+      "context": {
+        "originalQuestion": {
+          "content": "동점 항목의 페이지 순서를 어떻게 안정화했나요?",
+          "sourceQuote": "가상 전시 목록의 정렬을 개선했습니다.",
+          "intent": "동점 항목의 페이지 순서를 어떻게 안정화했나요?",
+          "evaluationCriteria": [
+            "기술적 정확성",
+            "근거",
+            "설명력"
+          ]
+        },
+        "originalAnswer": "점수가 같으면 고유 ID 오름차순으로 정렬했습니다. 같은 데이터에서는 동점에도 순서가 하나로 결정돼 페이지마다 순서가 흔들리지 않습니다.",
+        "initialEvaluation": null,
+        "followUpQuestion": null,
+        "followUpAnswer": null
+      },
+      "expected": {
+        "technicalAccuracy": [
+          "CORRECT"
+        ],
+        "reasoning": [
+          "SUFFICIENT"
+        ],
+        "clarity": [
+          "CLEAR"
+        ]
+      },
+      "coveredFacts": [
+        "고유 ID 보조 정렬과 동점 순서 결정"
+      ],
+      "requiredFeedback": [],
+      "forbiddenFeedback": [
+        "이력서에 ID 설명이 없다는 이유로 감점하거나 추가 질문"
+      ]
+    },
+    {
+      "id": "clear-wrong",
+      "title": "명료하지만 틀린 설명",
+      "context": {
+        "originalQuestion": {
+          "content": "Base64만으로 비밀번호를 안전하게 저장할 수 있나요?",
+          "sourceQuote": "비밀번호 저장 방식을 검토했습니다.",
+          "intent": "Base64만으로 비밀번호를 안전하게 저장할 수 있나요?",
+          "evaluationCriteria": [
+            "기술적 정확성",
+            "근거",
+            "설명력"
+          ]
+        },
+        "originalAnswer": "네. Base64 변환은 단방향이라 저장값만으로는 원문을 복원할 수 없습니다.",
+        "initialEvaluation": null,
+        "followUpQuestion": null,
+        "followUpAnswer": null
+      },
+      "expected": {
+        "technicalAccuracy": [
+          "INCORRECT"
+        ],
+        "reasoning": [
+          "INVALID"
+        ],
+        "clarity": [
+          "CLEAR"
+        ]
+      },
+      "coveredFacts": [
+        "복원 불가능하다는 주장 자체는 명료"
+      ],
+      "requiredFeedback": [
+        "Base64의 가역성과 단방향 저장 방식의 구별"
+      ],
+      "forbiddenFeedback": [
+        "기술 오류를 설명 불명확으로 바꿔 지적"
+      ]
+    },
+    {
+      "id": "follow-sufficient",
+      "title": "꼬리에서 근거 보완",
+      "context": {
+        "originalQuestion": {
+          "content": "중복 신청을 어떻게 막고 왜 그렇게 했나요?",
+          "sourceQuote": "가상 행사 신청에 중복 방지를 적용했습니다.",
+          "intent": "중복 신청을 어떻게 막고 왜 그렇게 했나요?",
+          "evaluationCriteria": [
+            "기술적 정확성",
+            "근거",
+            "설명력"
+          ]
+        },
+        "originalAnswer": "행사 ID와 회원 ID 조합에 유일 제약을 걸었습니다.",
+        "initialEvaluation": {
+          "technicalAccuracy": "CORRECT",
+          "reasoning": "INSUFFICIENT",
+          "clarity": "CLEAR",
+          "strengths": [
+            "제약 대상 열을 설명했습니다."
+          ],
+          "improvements": [
+            "동시 신청과 제약의 관계를 설명하세요."
+          ],
+          "uncertainties": [],
+          "summary": "정확함 / 근거 부족 / 명확함",
+          "followUpQuestion": "동시에 두 신청이 도착하면 유일 제약이 왜 필요한가요?"
+        },
+        "followUpQuestion": "동시에 두 신청이 도착하면 유일 제약이 왜 필요한가요?",
+        "followUpAnswer": "둘 다 사전 조회를 통과해도 같은 조합으로 삽입하면 DB가 한 건을 거부해 중복 행이 남지 않습니다."
+      },
+      "expected": {
+        "technicalAccuracy": [
+          "CORRECT"
+        ],
+        "reasoning": [
+          "SUFFICIENT"
+        ],
+        "clarity": [
+          "CLEAR"
+        ]
+      },
+      "coveredFacts": [
+        "유일 제약 및 동시 삽입 충돌을 꼬리에서 설명"
+      ],
+      "requiredFeedback": [],
+      "forbiddenFeedback": [
+        "이미 설명한 동시 삽입 근거 재요구 또는 추가 질문"
+      ]
+    },
+    {
+      "id": "follow-insufficient",
+      "title": "꼬리 후에도 남은 결핍",
+      "context": {
+        "originalQuestion": {
+          "content": "중복 신청을 어떻게 막고 왜 그렇게 했나요?",
+          "sourceQuote": "가상 행사 신청에 중복 방지를 적용했습니다.",
+          "intent": "중복 신청을 어떻게 막고 왜 그렇게 했나요?",
+          "evaluationCriteria": [
+            "기술적 정확성",
+            "근거",
+            "설명력"
+          ]
+        },
+        "originalAnswer": "행사 ID와 회원 ID 조합에 유일 제약을 걸었습니다.",
+        "initialEvaluation": {
+          "technicalAccuracy": "CORRECT",
+          "reasoning": "INSUFFICIENT",
+          "clarity": "CLEAR",
+          "strengths": [
+            "제약 대상 열을 설명했습니다."
+          ],
+          "improvements": [
+            "동시 신청과 제약의 관계를 설명하세요."
+          ],
+          "uncertainties": [],
+          "summary": "정확함 / 근거 부족 / 명확함",
+          "followUpQuestion": "동시에 두 신청이 도착하면 유일 제약이 왜 필요한가요?"
+        },
+        "followUpQuestion": "동시에 두 신청이 도착하면 유일 제약이 왜 필요한가요?",
+        "followUpAnswer": "그 조합으로 설정했다는 것만 기억합니다."
+      },
+      "expected": {
+        "technicalAccuracy": [
+          "CORRECT"
+        ],
+        "reasoning": [
+          "INSUFFICIENT"
+        ],
+        "clarity": [
+          "CLEAR"
+        ]
+      },
+      "coveredFacts": [
+        "유일 제약 대상 열을 명시"
+      ],
+      "requiredFeedback": [
+        "동시 신청이 충돌할 때 제약이 필요한 이유"
+      ],
+      "forbiddenFeedback": [
+        "열 조합 재설명 또는 추가 꼬리 질문"
+      ]
+    }
+  ]
+}
