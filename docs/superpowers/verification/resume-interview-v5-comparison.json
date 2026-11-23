@@ -1,0 +1,1271 @@
+{
+  "fixtureSha256": "a2d6bafa3f3f02f410a923335899357e1663585e0fdad62299180c739a603dcb",
+  "attempts": 20,
+  "records": [
+    {
+      "phase": "before",
+      "index": 0,
+      "id": "cache-order",
+      "reservedAtEpochMs": 1795414199843,
+      "result": {
+        "evaluation": {
+          "technicalAccuracy": "CORRECT",
+          "reasoning": "INSUFFICIENT",
+          "clarity": "CLEAR",
+          "strengths": [
+            "캐시 미스 시 DB에서 읽어 캐시에 저장하고 반환하는 흐름을 명확히 기술했습니다.",
+            "TTL 값을 구체적으로 제시하여 구현 의도를 보여줍니다."
+          ],
+          "improvements": [
+            "조회 순서를 왜 캐시 → DB 로 정했는지, 성능·부하 감소 측면에서의 근거를 제시해야 합니다.",
+            "만료 시간 30초를 선택한 이유(데이터 신선도 요구, 캐시 히트율, 시스템 부하 등)를 설명해야 합니다.",
+            "TTL 설정에 대한 트레이드오프(짧은 TTL vs 긴 TTL)와 해당 서비스에 맞는 판단 기준을 제시하면 좋습니다."
+          ],
+          "uncertainties": [
+            "TTL 30초가 실제 서비스 요구사항에 적합한지 여부는 제공된 정보만으로 판단할 수 없습니다.",
+            "캐시 적용 범위와 데이터 변동성에 따라 다른 TTL 값이 더 적절할 수도 있습니다."
+          ],
+          "summary": "기술적 정확성: 정확함. 근거: 부족함. 설명력: 명확함.",
+          "followUpQuestion": "캐시를 먼저 조회하는 이유와 만료 시간을 30초로 설정한 근거를 구체적으로 설명해 주실 수 있나요?"
+        },
+        "id": "cache-order",
+        "model": "openai/gpt-oss-120b",
+        "criteriaVersion": "resume-interview-v4"
+      },
+      "success": true,
+      "expectedAxisMatches": {
+        "technicalAccuracy": true,
+        "reasoning": true,
+        "clarity": true
+      }
+    },
+    {
+      "phase": "before",
+      "index": 1,
+      "id": "retry-order",
+      "reservedAtEpochMs": 1795414267589,
+      "result": {
+        "evaluation": {
+          "technicalAccuracy": "CORRECT",
+          "reasoning": "INSUFFICIENT",
+          "clarity": "CLEAR",
+          "strengths": [
+            "시간 초과 시 재시도 흐름을 간단명료하게 서술함.",
+            "재시도 후에도 실패하면 오류를 반환한다는 최종 처리 방식을 명확히 제시함."
+          ],
+          "improvements": [
+            "재시도 횟수(한 번)와 1초 대기 시간에 대한 근거를 제시하지 않았음.",
+            "재시도 정책이 고정값인지 설정 가능한지, 어떤 상황에서 조정될 수 있는지 설명이 부족함.",
+            "실패 시 반환하는 오류 유형이나 메시지에 대한 구체적인 설명이 없음."
+          ],
+          "uncertainties": [
+            "제시된 1초 대기와 한 번의 재시도가 실제 서비스 요구사항에 부합하는지 여부.",
+            "오류 반환 시 구체적인 오류 코드·메시지가 어떤 것인지."
+          ],
+          "summary": "기술적 정확성: 정확함. 근거: 부족함. 설명력: 명확함.",
+          "followUpQuestion": "재시도 횟수와 대기 시간은 어떤 근거(예: SLA, 서비스 특성, 시스템 부하)로 결정했는지 구체적으로 설명해 주시겠어요?"
+        },
+        "id": "retry-order",
+        "model": "openai/gpt-oss-120b",
+        "criteriaVersion": "resume-interview-v4"
+      },
+      "success": true,
+      "expectedAxisMatches": {
+        "technicalAccuracy": true,
+        "reasoning": true,
+        "clarity": true
+      }
+    },
+    {
+      "phase": "before",
+      "index": 2,
+      "id": "bounded-choice",
+      "reservedAtEpochMs": 1795414335481,
+      "result": {
+        "evaluation": {
+          "technicalAccuracy": "CORRECT",
+          "reasoning": "SUFFICIENT",
+          "clarity": "CLEAR",
+          "strengths": [
+            "알림 처리량(분당 2건)과 허용 지연(1분)이라는 구체적인 운영 지표를 제시했습니다.",
+            "운영 인력(운영자 1명)과 브로커 운영 비용을 피하려는 비용·운영 효율성을 고려한 이유를 제시했습니다.",
+            "30초 간격으로 DB를 폴링하여 미전송 건을 찾아 처리한다는 구현 방식을 명확히 설명했습니다."
+          ],
+          "improvements": [],
+          "uncertainties": [],
+          "summary": "기술적 정확성: 정확함. 근거: 충분함. 설명력: 명확함.",
+          "followUpQuestion": null
+        },
+        "id": "bounded-choice",
+        "model": "openai/gpt-oss-120b",
+        "criteriaVersion": "resume-interview-v4"
+      },
+      "success": true,
+      "expectedAxisMatches": {
+        "technicalAccuracy": true,
+        "reasoning": true,
+        "clarity": true
+      }
+    },
+    {
+      "phase": "before",
+      "index": 3,
+      "id": "familiarity",
+      "reservedAtEpochMs": 1795414403614,
+      "result": {
+        "evaluation": {
+          "technicalAccuracy": "NOT_ASSESSABLE",
+          "reasoning": "INSUFFICIENT",
+          "clarity": "CLEAR",
+          "strengths": [
+            "답변이 간결하고 명확하게 전달되었습니다.",
+            "자신이 익숙한 기술을 선택했다는 사실을 솔직하게 언급했습니다."
+          ],
+          "improvements": [
+            "검색엔진 선택 이유를 단순히 익숙함에만 국한하지 말고, 서비스 요구사항과의 기술적 매칭을 제시해야 합니다.",
+            "선택한 검색엔진의 핵심 기능(예: 인덱싱 방식, 검색 성능, 확장성)과 서비스에 필요한 특성을 연결해 설명하세요.",
+            "익숙함이 실제 적합성에 어떻게 도움이 되는지 구체적인 사례나 장점을 들어 명확히 제시할 필요가 있습니다."
+          ],
+          "uncertainties": [
+            "지원자가 실제로 어떤 검색엔진을 선택했는지 명시되지 않았습니다.",
+            "서비스의 구체적인 요구사항(데이터 양, 검색 빈도, 기능 요구 등)이 제공되지 않았습니다."
+          ],
+          "summary": "기술적 정확성: 판단할 정보 부족. 근거: 부족함. 설명력: 명확함.",
+          "followUpQuestion": "선택한 검색엔진이 무엇이며, 해당 서비스의 요구사항(예: 데이터 규모, 검색 속도, 기능)과 어떻게 부합하는지 구체적으로 설명해 주시겠어요?"
+        },
+        "id": "familiarity",
+        "model": "openai/gpt-oss-120b",
+        "criteriaVersion": "resume-interview-v4"
+      },
+      "success": true,
+      "expectedAxisMatches": {
+        "technicalAccuracy": true,
+        "reasoning": true,
+        "clarity": true
+      }
+    },
+    {
+      "phase": "before",
+      "index": 4,
+      "id": "transaction-error",
+      "reservedAtEpochMs": 1795414470892,
+      "result": {
+        "evaluation": {
+          "technicalAccuracy": "INCORRECT",
+          "reasoning": "INVALID",
+          "clarity": "CLEAR",
+          "strengths": [
+            "질문에 대해 직접적인 답변을 제공해 의사소통이 명확합니다.",
+            "트랜잭션 개념을 언급하며 간결하게 설명하려는 시도가 보입니다."
+          ],
+          "improvements": [
+            "SMS 전송은 외부 시스템 호출이므로 DB 롤백으로 이미 발송된 문자를 취소할 수 없다는 점을 명확히 해야 합니다.",
+            "롤백 시 발생할 수 있는 중복 발송 문제를 해결하기 위한 보상 트랜잭션, 아웃박스 패턴, 또는 메시지 큐 사용 등을 제시해야 합니다.",
+            "답변에 사용된 전제(문자 발송이 DB 트랜잭션 내부에 포함됨)를 실제 구현 여부와 관계없이 검증된 사실로 가정하지 말고, 가정이 필요하면 명시해야 합니다."
+          ],
+          "uncertainties": [
+            "SMS 전송이 실제로 DB 트랜잭션 내부에서 수행되는지 여부가 명시되지 않았습니다."
+          ],
+          "summary": "기술적 정확성: 오류 있음. 근거: 타당하지 않음. 설명력: 명확함.",
+          "followUpQuestion": "SMS 전송을 DB 트랜잭션과 연동하는 경우, 실제로 롤백 시 전송된 문자를 취소할 수 있는 메커니즘이 존재합니까? 그렇지 않다면, 롤백 후 문자 중복 발송을 방지하기 위한 설계 방안을 설명해 주세요."
+        },
+        "id": "transaction-error",
+        "model": "openai/gpt-oss-120b",
+        "criteriaVersion": "resume-interview-v4"
+      },
+      "success": true,
+      "expectedAxisMatches": {
+        "technicalAccuracy": true,
+        "reasoning": true,
+        "clarity": true
+      }
+    },
+    {
+      "phase": "before",
+      "index": 5,
+      "id": "unknown",
+      "reservedAtEpochMs": 1795414539446,
+      "result": {
+        "evaluation": {
+          "technicalAccuracy": "NOT_ASSESSABLE",
+          "reasoning": "INSUFFICIENT",
+          "clarity": "CLEAR",
+          "strengths": [
+            "답변이 명확하게 p95를 측정하지 않았음을 밝혀 진실성을 보였습니다."
+          ],
+          "improvements": [
+            "p95 지연 감소량과 측정 방법을 구체적으로 제시해야 합니다.",
+            "최적화 전후의 실제 p95 값이나 통계 자료를 제공하면 근거가 강화됩니다."
+          ],
+          "uncertainties": [
+            "최적화 전후 p95 지연 시간의 실제 수치",
+            "p95 측정을 위해 사용한 도구나 방법론"
+          ],
+          "summary": "기술적 정확성: 판단할 정보 부족. 근거: 부족함. 설명력: 명확함.",
+          "followUpQuestion": "최적화 전후의 p95 지연 시간을 측정한 결과가 있나요? 없으면 어떤 방법으로 측정할 계획인지 설명해 주시겠습니까?"
+        },
+        "id": "unknown",
+        "model": "openai/gpt-oss-120b",
+        "criteriaVersion": "resume-interview-v4"
+      },
+      "success": true,
+      "expectedAxisMatches": {
+        "technicalAccuracy": true,
+        "reasoning": true,
+        "clarity": true
+      }
+    },
+    {
+      "phase": "before",
+      "index": 6,
+      "id": "new-detail",
+      "reservedAtEpochMs": 1795414607263,
+      "result": {
+        "evaluation": {
+          "technicalAccuracy": "CORRECT",
+          "reasoning": "SUFFICIENT",
+          "clarity": "CLEAR",
+          "strengths": [
+            "동점 항목에 대해 고유 ID 오름차순 정렬이라는 명확한 전략을 제시했습니다.",
+            "그 전략이 페이지마다 순서가 흔들리지 않게 만든다는 결과를 직접 언급해 설명력을 보여줍니다."
+          ],
+          "improvements": [],
+          "uncertainties": [],
+          "summary": "기술적 정확성: 정확함. 근거: 충분함. 설명력: 명확함.",
+          "followUpQuestion": null
+        },
+        "id": "new-detail",
+        "model": "openai/gpt-oss-120b",
+        "criteriaVersion": "resume-interview-v4"
+      },
+      "success": true,
+      "expectedAxisMatches": {
+        "technicalAccuracy": true,
+        "reasoning": true,
+        "clarity": true
+      }
+    },
+    {
+      "phase": "before",
+      "index": 7,
+      "id": "clear-wrong",
+      "reservedAtEpochMs": 1795414674877,
+      "result": {
+        "evaluation": {
+          "technicalAccuracy": "INCORRECT",
+          "reasoning": "INSUFFICIENT",
+          "clarity": "CLEAR",
+          "strengths": [
+            "답변이 간결하고 명확하게 제시되었습니다."
+          ],
+          "improvements": [
+            "Base64는 인코딩 방식으로, 언제든 원본 문자열로 복원할 수 있다는 점을 언급해야 합니다.",
+            "비밀번호 저장에 필요한 일방향 해시와 소금(salt) 사용 등 안전한 저장 방법을 제시하지 않았습니다.",
+            "왜 Base64만으로는 보안에 취약한지 구체적인 근거와 사례를 들어 설명할 필요가 있습니다."
+          ],
+          "uncertainties": [],
+          "summary": "기술적 정확성: 오류 있음. 근거: 부족함. 설명력: 명확함.",
+          "followUpQuestion": "Base64가 단방향 변환이 아니라 인코딩이며, 비밀번호를 안전하게 저장하기 위해서는 어떤 해시 알고리즘과 소금(salt)을 사용해야 하는지 설명해 주세요."
+        },
+        "id": "clear-wrong",
+        "model": "openai/gpt-oss-120b",
+        "criteriaVersion": "resume-interview-v4"
+      },
+      "success": true,
+      "expectedAxisMatches": {
+        "technicalAccuracy": true,
+        "reasoning": false,
+        "clarity": true
+      }
+    },
+    {
+      "phase": "before",
+      "index": 8,
+      "id": "follow-sufficient",
+      "reservedAtEpochMs": 1795414742252,
+      "result": {
+        "evaluation": {
+          "technicalAccuracy": "CORRECT",
+          "reasoning": "SUFFICIENT",
+          "clarity": "CLEAR",
+          "strengths": [
+            "고유 제약(UNIQUE)으로 (행사 ID, 회원 ID) 조합을 보호한다는 점을 정확히 제시함.",
+            "동시 요청이 들어올 경우 DB가 중복 삽입을 거부해 중복 행이 남지 않는 메커니즘을 명확히 설명함.",
+            "답변이 간결하면서 핵심 원리를 전달함."
+          ],
+          "improvements": [],
+          "uncertainties": [],
+          "summary": "기술적 정확성: 정확함. 근거: 충분함. 설명력: 명확함.",
+          "followUpQuestion": null
+        },
+        "id": "follow-sufficient",
+        "model": "openai/gpt-oss-120b",
+        "criteriaVersion": "resume-interview-v4"
+      },
+      "success": true,
+      "expectedAxisMatches": {
+        "technicalAccuracy": true,
+        "reasoning": true,
+        "clarity": true
+      }
+    },
+    {
+      "phase": "before",
+      "index": 9,
+      "id": "follow-insufficient",
+      "reservedAtEpochMs": 1795414809853,
+      "result": {
+        "evaluation": {
+          "technicalAccuracy": "NOT_ASSESSABLE",
+          "reasoning": "INSUFFICIENT",
+          "clarity": "UNCLEAR",
+          "strengths": [
+            "유일 제약을 적용했다는 점을 기억하고 있음"
+          ],
+          "improvements": [
+            "동시 요청 시 발생할 수 있는 중복 삽입 문제와 유일 제약이 이를 어떻게 방지하는지 설명하세요.",
+            "제약이 적용된 컬럼과 데이터베이스 레벨에서의 동시성 제어 메커니즘을 구체적으로 제시하세요."
+          ],
+          "uncertainties": [
+            "제약이 실제 어떤 데이터베이스 시스템에서 구현됐는지 명시되지 않음",
+            "제약 적용 시 트랜잭션 격리 수준이나 오류 처리 로직에 대한 정보가 없음"
+          ],
+          "summary": "기술적 정확성: 판단할 정보 부족. 근거: 부족함. 설명력: 불명확함.",
+          "followUpQuestion": null
+        },
+        "id": "follow-insufficient",
+        "model": "openai/gpt-oss-120b",
+        "criteriaVersion": "resume-interview-v4"
+      },
+      "success": true,
+      "expectedAxisMatches": {
+        "technicalAccuracy": false,
+        "reasoning": true,
+        "clarity": false
+      }
+    },
+    {
+      "phase": "after",
+      "index": 0,
+      "id": "cache-order",
+      "reservedAtEpochMs": 1795415334890,
+      "success": true,
+      "result": {
+        "criteriaVersion": "resume-interview-v5",
+        "model": "openai/gpt-oss-120b",
+        "id": "cache-order",
+        "evaluation": {
+          "technicalAccuracy": "CORRECT",
+          "reasoning": "INSUFFICIENT",
+          "clarity": "CLEAR",
+          "strengths": [
+            "캐시를 먼저 조회하고, 없을 경우 DB에서 읽어 캐시에 저장한다는 절차와 만료 시간을 30초로 설정함",
+            "설명된 동작이 일반적인 캐시 전략과 일치함",
+            "절차와 만료 시간을 간결하고 명확하게 서술함"
+          ],
+          "improvements": [
+            "조회 순서와 만료 시간을 선택한 근거에 대한 설명이 누락되었습니다."
+          ],
+          "uncertainties": [
+            "만료 시간 30초를 선택한 구체적인 근거가 제공되지 않음",
+            "캐시를 먼저 조회하는 것이 왜 효율적인지에 대한 논리적 설명이 없음"
+          ],
+          "summary": "기술적 정확성: 정확함. 근거: 부족함. 설명력: 명확함.",
+          "followUpQuestion": "캐시를 먼저 조회하는 이유와 만료 시간을 30초로 설정한 근거를 상세히 설명해 주시겠습니까?",
+          "assessments": [
+            {
+              "axis": "TECHNICAL_ACCURACY",
+              "evidence": [
+                {
+                  "source": "ORIGINAL_ANSWER",
+                  "quote": "우선 캐시를 조회합니다. 없으면 DB에서 읽어 캐시에 넣고 반환합니다. 만료 시간은 30초입니다."
+                }
+              ],
+              "coveredPoints": [
+                "캐시를 먼저 조회하고, 없을 경우 DB에서 읽어 캐시에 저장한다는 절차와 만료 시간을 30초로 설정함",
+                "설명된 동작이 일반적인 캐시 전략과 일치함"
+              ],
+              "improvements": []
+            },
+            {
+              "axis": "REASONING",
+              "evidence": [
+                {
+                  "source": "ORIGINAL_ANSWER",
+                  "quote": "우선 캐시를 조회합니다. 없으면 DB에서 읽어 캐시에 넣고 반환합니다. 만료 시간은 30초입니다."
+                }
+              ],
+              "coveredPoints": [],
+              "improvements": [
+                "조회 순서와 만료 시간을 선택한 근거에 대한 설명이 누락되었습니다."
+              ]
+            },
+            {
+              "axis": "CLARITY",
+              "evidence": [
+                {
+                  "source": "ORIGINAL_ANSWER",
+                  "quote": "우선 캐시를 조회합니다. 없으면 DB에서 읽어 캐시에 넣고 반환합니다. 만료 시간은 30초입니다."
+                }
+              ],
+              "coveredPoints": [
+                "절차와 만료 시간을 간결하고 명확하게 서술함"
+              ],
+              "improvements": []
+            }
+          ],
+          "followUpAxis": "REASONING"
+        }
+      },
+      "expectedAxisMatches": {
+        "technicalAccuracy": true,
+        "reasoning": true,
+        "clarity": true
+      }
+    },
+    {
+      "phase": "after",
+      "index": 1,
+      "id": "retry-order",
+      "reservedAtEpochMs": 1795415403396,
+      "success": true,
+      "result": {
+        "criteriaVersion": "resume-interview-v5",
+        "model": "openai/gpt-oss-120b",
+        "id": "retry-order",
+        "evaluation": {
+          "technicalAccuracy": "CORRECT",
+          "reasoning": "INSUFFICIENT",
+          "clarity": "CLEAR",
+          "strengths": [
+            "시간 초과 시 1초 후 재시도 1회, 이후 오류 반환이라는 처리 흐름을 제시함",
+            "실패 후 재시도 흐름을 제시",
+            "답변이 간결하고 이해하기 쉬움"
+          ],
+          "improvements": [
+            "재시도 횟수 제한 및 지연 시간 선택에 대한 근거를 설명하지 않음"
+          ],
+          "uncertainties": [
+            "시스템 전반에서 재시도 제한이 어떻게 정의되는지 확인할 수 없음",
+            "1초 지연 시간을 선택한 구체적인 이유가 제시되지 않음"
+          ],
+          "summary": "기술적 정확성: 정확함. 근거: 부족함. 설명력: 명확함.",
+          "followUpQuestion": "재시도 횟수 제한을 두게 된 근거(예: 서비스 정책, 시스템 부하 방지, 사용자 경험 등)와 1초 지연 시간을 선택한 이유를 자세히 설명해 주시겠습니까?",
+          "assessments": [
+            {
+              "axis": "TECHNICAL_ACCURACY",
+              "evidence": [
+                {
+                  "source": "ORIGINAL_ANSWER",
+                  "quote": "조회가 시간 초과되면 1초 뒤 한 번 더 조회하고, 또 실패하면 오류를 반환합니다."
+                }
+              ],
+              "coveredPoints": [
+                "시간 초과 시 1초 후 재시도 1회, 이후 오류 반환이라는 처리 흐름을 제시함"
+              ],
+              "improvements": []
+            },
+            {
+              "axis": "REASONING",
+              "evidence": [
+                {
+                  "source": "ORIGINAL_ANSWER",
+                  "quote": "조회가 시간 초과되면 1초 뒤 한 번 더 조회하고, 또 실패하면 오류를 반환합니다."
+                }
+              ],
+              "coveredPoints": [
+                "실패 후 재시도 흐름을 제시"
+              ],
+              "improvements": [
+                "재시도 횟수 제한 및 지연 시간 선택에 대한 근거를 설명하지 않음"
+              ]
+            },
+            {
+              "axis": "CLARITY",
+              "evidence": [
+                {
+                  "source": "ORIGINAL_ANSWER",
+                  "quote": "조회가 시간 초과되면 1초 뒤 한 번 더 조회하고, 또 실패하면 오류를 반환합니다."
+                }
+              ],
+              "coveredPoints": [
+                "답변이 간결하고 이해하기 쉬움"
+              ],
+              "improvements": []
+            }
+          ],
+          "followUpAxis": "REASONING"
+        }
+      },
+      "expectedAxisMatches": {
+        "technicalAccuracy": true,
+        "reasoning": true,
+        "clarity": true
+      }
+    },
+    {
+      "phase": "after",
+      "index": 2,
+      "id": "bounded-choice",
+      "reservedAtEpochMs": 1795415472278,
+      "success": true,
+      "result": {
+        "criteriaVersion": "resume-interview-v5",
+        "model": "openai/gpt-oss-120b",
+        "id": "bounded-choice",
+        "evaluation": {
+          "technicalAccuracy": "CORRECT",
+          "reasoning": "SUFFICIENT",
+          "clarity": "CLEAR",
+          "strengths": [
+            "분당 두 건이라는 낮은 처리량으로 DB 폴링이 충분히 가능함",
+            "30초 간격 폴링이 1분 허용 지연과 일치하여 요구 성능을 만족",
+            "운영자가 한 명이라 별도 브로커 운영을 피함으로써 운영 복잡성을 감소",
+            "저량 트래픽과 허용 지연을 근거로 DB 폴링 선택을 정당화",
+            "핵심 이유를 간결하고 명확하게 전달",
+            "필요한 정보를 과도하게 길게 설명하지 않음"
+          ],
+          "improvements": [],
+          "uncertainties": [],
+          "summary": "기술적 정확성: 정확함. 근거: 충분함. 설명력: 명확함.",
+          "followUpQuestion": null,
+          "assessments": [
+            {
+              "axis": "TECHNICAL_ACCURACY",
+              "evidence": [
+                {
+                  "source": "ORIGINAL_ANSWER",
+                  "quote": "분당 두 건이고 1분 지연이 허용됐습니다. 기존 DB에서 30초마다 미전송 건을 찾아 처리했습니다."
+                }
+              ],
+              "coveredPoints": [
+                "분당 두 건이라는 낮은 처리량으로 DB 폴링이 충분히 가능함",
+                "30초 간격 폴링이 1분 허용 지연과 일치하여 요구 성능을 만족"
+              ],
+              "improvements": []
+            },
+            {
+              "axis": "REASONING",
+              "evidence": [
+                {
+                  "source": "ORIGINAL_ANSWER",
+                  "quote": "운영자가 한 명이라 별도 브로커 운영을 피했습니다."
+                },
+                {
+                  "source": "ORIGINAL_ANSWER",
+                  "quote": "분당 두 건이고 1분 지연이 허용됐습니다. 기존 DB에서 30초마다 미전송 건을 찾아 처리했습니다."
+                }
+              ],
+              "coveredPoints": [
+                "운영자가 한 명이라 별도 브로커 운영을 피함으로써 운영 복잡성을 감소",
+                "저량 트래픽과 허용 지연을 근거로 DB 폴링 선택을 정당화"
+              ],
+              "improvements": []
+            },
+            {
+              "axis": "CLARITY",
+              "evidence": [
+                {
+                  "source": "ORIGINAL_ANSWER",
+                  "quote": "분당 두 건이고 1분 지연이 허용됐습니다. 기존 DB에서 30초마다 미전송 건을 찾아 처리했습니다. 운영자가 한 명이라 별도 브로커 운영을 피했습니다."
+                }
+              ],
+              "coveredPoints": [
+                "핵심 이유를 간결하고 명확하게 전달",
+                "필요한 정보를 과도하게 길게 설명하지 않음"
+              ],
+              "improvements": []
+            }
+          ]
+        }
+      },
+      "expectedAxisMatches": {
+        "technicalAccuracy": true,
+        "reasoning": true,
+        "clarity": true
+      }
+    },
+    {
+      "phase": "after",
+      "index": 3,
+      "id": "familiarity",
+      "reservedAtEpochMs": 1795415540940,
+      "success": true,
+      "result": {
+        "criteriaVersion": "resume-interview-v5",
+        "model": "openai/gpt-oss-120b",
+        "id": "familiarity",
+        "evaluation": {
+          "technicalAccuracy": "NOT_ASSESSABLE",
+          "reasoning": "INSUFFICIENT",
+          "clarity": "CLEAR",
+          "strengths": [
+            "익숙함을 이유로 제시함",
+            "답변이 명료하게 전달되었습니다."
+          ],
+          "improvements": [
+            "답변에 검색 엔진 선택의 기술적 적합성에 대한 구체적인 근거가 없어 평가할 수 없습니다.",
+            "왜 익숙함이 서비스에 적합한지 구체적인 근거와 비교 분석이 필요합니다."
+          ],
+          "uncertainties": [
+            "지원자가 선택한 검색 엔진이 구체적으로 무엇인지 명시되지 않음",
+            "서비스의 검색 요구사항 및 제약조건이 제공되지 않음",
+            "익숙함이 서비스 적합성에 어떤 영향을 미치는지 근거가 없음",
+            "검색 엔진의 성능·스케일링·보안 특성에 대한 정보가 없음"
+          ],
+          "summary": "기술적 정확성: 판단할 정보 부족. 근거: 부족함. 설명력: 명확함.",
+          "followUpQuestion": "해당 검색 엔진이 서비스의 요구사항에 어떻게 부합하는지, 성능·확장성·데이터 모델 측면에서 구체적인 이유를 설명해 주실 수 있나요?",
+          "assessments": [
+            {
+              "axis": "TECHNICAL_ACCURACY",
+              "evidence": [
+                {
+                  "source": "ORIGINAL_ANSWER",
+                  "quote": "제가 익숙해서 골랐습니다."
+                }
+              ],
+              "coveredPoints": [],
+              "improvements": [
+                "답변에 검색 엔진 선택의 기술적 적합성에 대한 구체적인 근거가 없어 평가할 수 없습니다."
+              ]
+            },
+            {
+              "axis": "REASONING",
+              "evidence": [
+                {
+                  "source": "ORIGINAL_ANSWER",
+                  "quote": "제가 익숙해서 골랐습니다."
+                }
+              ],
+              "coveredPoints": [
+                "익숙함을 이유로 제시함"
+              ],
+              "improvements": [
+                "왜 익숙함이 서비스에 적합한지 구체적인 근거와 비교 분석이 필요합니다."
+              ]
+            },
+            {
+              "axis": "CLARITY",
+              "evidence": [
+                {
+                  "source": "ORIGINAL_ANSWER",
+                  "quote": "제가 익숙해서 골랐습니다."
+                }
+              ],
+              "coveredPoints": [
+                "답변이 명료하게 전달되었습니다."
+              ],
+              "improvements": []
+            }
+          ],
+          "followUpAxis": "REASONING"
+        }
+      },
+      "expectedAxisMatches": {
+        "technicalAccuracy": true,
+        "reasoning": true,
+        "clarity": true
+      }
+    },
+    {
+      "phase": "after",
+      "index": 4,
+      "id": "transaction-error",
+      "reservedAtEpochMs": 1795415611265,
+      "success": true,
+      "result": {
+        "criteriaVersion": "resume-interview-v5",
+        "model": "openai/gpt-oss-120b",
+        "id": "transaction-error",
+        "evaluation": {
+          "technicalAccuracy": "INCORRECT",
+          "reasoning": "INSUFFICIENT",
+          "clarity": "CLEAR",
+          "strengths": [
+            "답변이 간결하고 의도가 명확하게 전달됩니다."
+          ],
+          "improvements": [
+            "답변은 DB 트랜잭션이 롤백될 경우 이미 전송된 SMS가 취소된다고 잘못 주장하고 있습니다. 외부 SMS 서비스는 DB 트랜잭션과 별개이며 롤백으로 메시지가 회수되지 않습니다.",
+            "왜 롤백이 외부 문자 전송에 영향을 주지 않는지에 대한 근거와 설명이 전혀 제공되지 않았습니다. 트랜잭션 경계와 외부 시스템 호출에 대한 논리를 제시해야 합니다."
+          ],
+          "uncertainties": [
+            "해당 시스템이 SMS 전송을 DB 트랜잭션 내에서 동기식으로 호출하도록 구현했는지 여부를 알 수 없습니다.",
+            "외부 문자 발송 서비스가 롤백 시 메시지 회수를 지원하는 특별한 메커니즘을 제공하는지 여부가 확인되지 않았습니다."
+          ],
+          "summary": "기술적 정확성: 오류 있음. 근거: 부족함. 설명력: 명확함.",
+          "followUpQuestion": "DB 트랜잭션 안에서 외부 SMS API를 호출했을 때, 트랜잭션이 롤백되면 이미 전송된 문자는 어떻게 처리되는지 자세히 설명해 주시겠습니까?",
+          "assessments": [
+            {
+              "axis": "TECHNICAL_ACCURACY",
+              "evidence": [
+                {
+                  "source": "ORIGINAL_ANSWER",
+                  "quote": "DB 트랜잭션 안에서 발송했으므로 롤백하면 고객에게 도착한 문자도 취소됩니다."
+                }
+              ],
+              "coveredPoints": [],
+              "improvements": [
+                "답변은 DB 트랜잭션이 롤백될 경우 이미 전송된 SMS가 취소된다고 잘못 주장하고 있습니다. 외부 SMS 서비스는 DB 트랜잭션과 별개이며 롤백으로 메시지가 회수되지 않습니다."
+              ]
+            },
+            {
+              "axis": "REASONING",
+              "evidence": [
+                {
+                  "source": "ORIGINAL_ANSWER",
+                  "quote": "DB 트랜잭션 안에서 발송했으므로 롤백하면 고객에게 도착한 문자도 취소됩니다."
+                }
+              ],
+              "coveredPoints": [],
+              "improvements": [
+                "왜 롤백이 외부 문자 전송에 영향을 주지 않는지에 대한 근거와 설명이 전혀 제공되지 않았습니다. 트랜잭션 경계와 외부 시스템 호출에 대한 논리를 제시해야 합니다."
+              ]
+            },
+            {
+              "axis": "CLARITY",
+              "evidence": [
+                {
+                  "source": "ORIGINAL_ANSWER",
+                  "quote": "DB 트랜잭션 안에서 발송했으므로 롤백하면 고객에게 도착한 문자도 취소됩니다."
+                }
+              ],
+              "coveredPoints": [
+                "답변이 간결하고 의도가 명확하게 전달됩니다."
+              ],
+              "improvements": []
+            }
+          ],
+          "followUpAxis": "TECHNICAL_ACCURACY"
+        }
+      },
+      "expectedAxisMatches": {
+        "technicalAccuracy": true,
+        "reasoning": false,
+        "clarity": true
+      }
+    },
+    {
+      "phase": "after",
+      "index": 5,
+      "id": "unknown",
+      "reservedAtEpochMs": 1795415680198,
+      "success": true,
+      "result": {
+        "criteriaVersion": "resume-interview-v5",
+        "model": "openai/gpt-oss-120b",
+        "id": "unknown",
+        "evaluation": {
+          "technicalAccuracy": "CORRECT",
+          "reasoning": "SUFFICIENT",
+          "clarity": "CLEAR",
+          "strengths": [
+            "p95 지연을 측정하지 않았다는 사실을 정확히 진술함",
+            "측정하지 않았으므로 알 수 없다는 논리적 결론을 제시함",
+            "답변이 간결하고 이해하기 쉬움"
+          ],
+          "improvements": [],
+          "uncertainties": [],
+          "summary": "기술적 정확성: 정확함. 근거: 충분함. 설명력: 명확함.",
+          "followUpQuestion": null,
+          "assessments": [
+            {
+              "axis": "TECHNICAL_ACCURACY",
+              "evidence": [
+                {
+                  "source": "ORIGINAL_ANSWER",
+                  "quote": "p95는 측정하지 않아 얼마나 줄었는지 모릅니다."
+                }
+              ],
+              "coveredPoints": [
+                "p95 지연을 측정하지 않았다는 사실을 정확히 진술함"
+              ],
+              "improvements": []
+            },
+            {
+              "axis": "REASONING",
+              "evidence": [
+                {
+                  "source": "ORIGINAL_ANSWER",
+                  "quote": "p95는 측정하지 않아 얼마나 줄었는지 모릅니다."
+                }
+              ],
+              "coveredPoints": [
+                "측정하지 않았으므로 알 수 없다는 논리적 결론을 제시함"
+              ],
+              "improvements": []
+            },
+            {
+              "axis": "CLARITY",
+              "evidence": [
+                {
+                  "source": "ORIGINAL_ANSWER",
+                  "quote": "p95는 측정하지 않아 얼마나 줄었는지 모릅니다."
+                }
+              ],
+              "coveredPoints": [
+                "답변이 간결하고 이해하기 쉬움"
+              ],
+              "improvements": []
+            }
+          ]
+        }
+      },
+      "expectedAxisMatches": {
+        "technicalAccuracy": false,
+        "reasoning": false,
+        "clarity": true
+      }
+    },
+    {
+      "phase": "after",
+      "index": 6,
+      "id": "new-detail",
+      "reservedAtEpochMs": 1795415749613,
+      "success": true,
+      "result": {
+        "criteriaVersion": "resume-interview-v5",
+        "model": "openai/gpt-oss-120b",
+        "id": "new-detail",
+        "evaluation": {
+          "technicalAccuracy": "CORRECT",
+          "reasoning": "SUFFICIENT",
+          "clarity": "CLEAR",
+          "strengths": [
+            "동점 항목을 고유 ID 오름차순으로 정렬하여 순서를 결정함",
+            "동점에도 순서가 하나로 결정돼 페이지마다 순서가 흔들리지 않음",
+            "답변이 간결하고 명확하게 제시됨"
+          ],
+          "improvements": [],
+          "uncertainties": [],
+          "summary": "기술적 정확성: 정확함. 근거: 충분함. 설명력: 명확함.",
+          "followUpQuestion": null,
+          "assessments": [
+            {
+              "axis": "TECHNICAL_ACCURACY",
+              "evidence": [
+                {
+                  "source": "ORIGINAL_ANSWER",
+                  "quote": "점수가 같으면 고유 ID 오름차순으로 정렬했습니다."
+                }
+              ],
+              "coveredPoints": [
+                "동점 항목을 고유 ID 오름차순으로 정렬하여 순서를 결정함"
+              ],
+              "improvements": []
+            },
+            {
+              "axis": "REASONING",
+              "evidence": [
+                {
+                  "source": "ORIGINAL_ANSWER",
+                  "quote": "같은 데이터에서는 동점에도 순서가 하나로 결정돼 페이지마다 순서가 흔들리지 않습니다."
+                }
+              ],
+              "coveredPoints": [
+                "동점에도 순서가 하나로 결정돼 페이지마다 순서가 흔들리지 않음"
+              ],
+              "improvements": []
+            },
+            {
+              "axis": "CLARITY",
+              "evidence": [
+                {
+                  "source": "ORIGINAL_ANSWER",
+                  "quote": "점수가 같으면 고유 ID 오름차순으로 정렬했습니다. 같은 데이터에서는 동점에도 순서가 하나로 결정돼 페이지마다 순서가 흔들리지 않습니다."
+                }
+              ],
+              "coveredPoints": [
+                "답변이 간결하고 명확하게 제시됨"
+              ],
+              "improvements": []
+            }
+          ]
+        }
+      },
+      "expectedAxisMatches": {
+        "technicalAccuracy": true,
+        "reasoning": true,
+        "clarity": true
+      }
+    },
+    {
+      "phase": "after",
+      "index": 7,
+      "id": "clear-wrong",
+      "reservedAtEpochMs": 1795415822857,
+      "success": true,
+      "result": {
+        "criteriaVersion": "resume-interview-v5",
+        "model": "openai/gpt-oss-120b",
+        "id": "clear-wrong",
+        "evaluation": {
+          "technicalAccuracy": "INCORRECT",
+          "reasoning": "INVALID",
+          "clarity": "CLEAR",
+          "strengths": [
+            "답변이 간결하고 이해하기 쉬워 명확합니다."
+          ],
+          "improvements": [
+            "Base64는 인코딩 방식으로, 원본 데이터를 복원할 수 있는 가역적인 변환이며, 암호화·해시와 달리 보안성을 제공하지 못합니다. 따라서 비밀번호 저장에 적합하지 않습니다.",
+            "왜 Base64가 단방향이라고 생각했는지 근거를 제시하고, 비밀번호 보호를 위해 해시·솔트 등 적절한 방법을 설명해야 합니다."
+          ],
+          "uncertainties": [],
+          "summary": "기술적 정확성: 오류 있음. 근거: 타당하지 않음. 설명력: 명확함.",
+          "followUpQuestion": "Base64가 단방향 변환이라고 생각하신 이유와 실제 암호화·해시와의 차이점을 설명해 주세요.",
+          "assessments": [
+            {
+              "axis": "TECHNICAL_ACCURACY",
+              "evidence": [
+                {
+                  "source": "ORIGINAL_ANSWER",
+                  "quote": "네. Base64 변환은 단방향이라 저장값만으로는 원문을 복원할 수 없습니다."
+                }
+              ],
+              "coveredPoints": [],
+              "improvements": [
+                "Base64는 인코딩 방식으로, 원본 데이터를 복원할 수 있는 가역적인 변환이며, 암호화·해시와 달리 보안성을 제공하지 못합니다. 따라서 비밀번호 저장에 적합하지 않습니다."
+              ]
+            },
+            {
+              "axis": "REASONING",
+              "evidence": [
+                {
+                  "source": "ORIGINAL_ANSWER",
+                  "quote": "네. Base64 변환은 단방향이라 저장값만으로는 원문을 복원할 수 없습니다."
+                }
+              ],
+              "coveredPoints": [],
+              "improvements": [
+                "왜 Base64가 단방향이라고 생각했는지 근거를 제시하고, 비밀번호 보호를 위해 해시·솔트 등 적절한 방법을 설명해야 합니다."
+              ]
+            },
+            {
+              "axis": "CLARITY",
+              "evidence": [
+                {
+                  "source": "ORIGINAL_ANSWER",
+                  "quote": "네. Base64 변환은 단방향이라 저장값만으로는 원문을 복원할 수 없습니다."
+                }
+              ],
+              "coveredPoints": [
+                "답변이 간결하고 이해하기 쉬워 명확합니다."
+              ],
+              "improvements": []
+            }
+          ],
+          "followUpAxis": "TECHNICAL_ACCURACY"
+        }
+      },
+      "expectedAxisMatches": {
+        "technicalAccuracy": true,
+        "reasoning": true,
+        "clarity": true
+      }
+    },
+    {
+      "phase": "after",
+      "index": 8,
+      "id": "follow-sufficient",
+      "reservedAtEpochMs": 1795415890993,
+      "success": true,
+      "result": {
+        "criteriaVersion": "resume-interview-v5",
+        "model": "openai/gpt-oss-120b",
+        "id": "follow-sufficient",
+        "evaluation": {
+          "technicalAccuracy": "CORRECT",
+          "reasoning": "SUFFICIENT",
+          "clarity": "CLEAR",
+          "strengths": [
+            "행사 ID와 회원 ID 조합에 유일 제약을 적용해 중복을 방지했습니다.",
+            "동시 두 신청이 도착해도 같은 조합 삽입 시 DB가 제약으로 한 건을 거부해 중복이 발생하지 않음을 설명했습니다.",
+            "답변이 간결하고 핵심을 명확히 전달했습니다."
+          ],
+          "improvements": [],
+          "uncertainties": [],
+          "summary": "기술적 정확성: 정확함. 근거: 충분함. 설명력: 명확함.",
+          "followUpQuestion": null,
+          "assessments": [
+            {
+              "axis": "TECHNICAL_ACCURACY",
+              "evidence": [
+                {
+                  "source": "ORIGINAL_ANSWER",
+                  "quote": "행사 ID와 회원 ID 조합에 유일 제약을 걸었습니다."
+                }
+              ],
+              "coveredPoints": [
+                "행사 ID와 회원 ID 조합에 유일 제약을 적용해 중복을 방지했습니다."
+              ],
+              "improvements": []
+            },
+            {
+              "axis": "REASONING",
+              "evidence": [
+                {
+                  "source": "FOLLOW_UP_ANSWER",
+                  "quote": "둘 다 사전 조회를 통과해도 같은 조합으로 삽입하면 DB가 한 건을 거부해 중복 행이 남지 않습니다."
+                }
+              ],
+              "coveredPoints": [
+                "동시 두 신청이 도착해도 같은 조합 삽입 시 DB가 제약으로 한 건을 거부해 중복이 발생하지 않음을 설명했습니다."
+              ],
+              "improvements": []
+            },
+            {
+              "axis": "CLARITY",
+              "evidence": [
+                {
+                  "source": "ORIGINAL_ANSWER",
+                  "quote": "행사 ID와 회원 ID 조합에 유일 제약을 걸었습니다."
+                }
+              ],
+              "coveredPoints": [
+                "답변이 간결하고 핵심을 명확히 전달했습니다."
+              ],
+              "improvements": []
+            }
+          ]
+        }
+      },
+      "expectedAxisMatches": {
+        "technicalAccuracy": true,
+        "reasoning": true,
+        "clarity": true
+      }
+    },
+    {
+      "phase": "after",
+      "index": 9,
+      "id": "follow-insufficient",
+      "reservedAtEpochMs": 1795415958745,
+      "success": true,
+      "result": {
+        "criteriaVersion": "resume-interview-v5",
+        "model": "openai/gpt-oss-120b",
+        "id": "follow-insufficient",
+        "evaluation": {
+          "technicalAccuracy": "CORRECT",
+          "reasoning": "INSUFFICIENT",
+          "clarity": "CLEAR",
+          "strengths": [
+            "행사 ID와 회원 ID 조합에 유일 제약을 적용해 중복 신청을 방지한다는 점",
+            "유일 제약을 적용했다는 사실을 제시함",
+            "답변이 짧고 핵심을 정확히 전달함"
+          ],
+          "improvements": [
+            "동시에 두 신청이 도착할 경우 레이스 컨디션을 방지하기 위해 왜 유일 제약이 필요하고, DB가 충돌을 어떻게 처리하는지 설명이 부족함"
+          ],
+          "uncertainties": [
+            "제약을 실제 어떤 DB와 테이블에 적용했는지 확인 불가",
+            "제약 설정 시 트랜잭션 격리 수준이나 에러 처리 방식을 알 수 없음",
+            "동시 요청 시 발생할 수 있는 충돌을 어떻게 처리했는지 정보 부족",
+            "지원자가 해당 제약을 직접 설계·구현했는지, 팀에서 제공된 기능을 사용했는지 불명확",
+            "제약 외에 추가적인 중복 방지 로직(예: 애플리케이션 레벨 체크)이 있었는지 여부",
+            "실제 시스템에서 발생한 중복 신청 사례와 해결 과정에 대한 언급 없음"
+          ],
+          "summary": "기술적 정확성: 정확함. 근거: 부족함. 설명력: 명확함.",
+          "followUpQuestion": null,
+          "assessments": [
+            {
+              "axis": "TECHNICAL_ACCURACY",
+              "evidence": [
+                {
+                  "source": "ORIGINAL_ANSWER",
+                  "quote": "행사 ID와 회원 ID 조합에 유일 제약을 걸었습니다."
+                }
+              ],
+              "coveredPoints": [
+                "행사 ID와 회원 ID 조합에 유일 제약을 적용해 중복 신청을 방지한다는 점"
+              ],
+              "improvements": []
+            },
+            {
+              "axis": "REASONING",
+              "evidence": [
+                {
+                  "source": "ORIGINAL_ANSWER",
+                  "quote": "행사 ID와 회원 ID 조합에 유일 제약을 걸었습니다."
+                }
+              ],
+              "coveredPoints": [
+                "유일 제약을 적용했다는 사실을 제시함"
+              ],
+              "improvements": [
+                "동시에 두 신청이 도착할 경우 레이스 컨디션을 방지하기 위해 왜 유일 제약이 필요하고, DB가 충돌을 어떻게 처리하는지 설명이 부족함"
+              ]
+            },
+            {
+              "axis": "CLARITY",
+              "evidence": [
+                {
+                  "source": "ORIGINAL_ANSWER",
+                  "quote": "행사 ID와 회원 ID 조합에 유일 제약을 걸었습니다."
+                }
+              ],
+              "coveredPoints": [
+                "답변이 짧고 핵심을 정확히 전달함"
+              ],
+              "improvements": []
+            }
+          ]
+        }
+      },
+      "expectedAxisMatches": {
+        "technicalAccuracy": true,
+        "reasoning": true,
+        "clarity": true
+      }
+    }
+  ],
+  "model": "openai/gpt-oss-120b",
+  "beforeCommit": "7c7ee0170039a6a8bae9bdbee814cd93b0ca8b3d",
+  "afterCommit": "75e5d9c4237398287407263aaf31f090189442f8",
+  "fixturePath": "src/test/resources/quality/evaluation-cases.json",
+  "method": "동일 가상사례10개를 버전별1회. 사전에 고정한 기대축·필수/금지피드백과 수동 의미대조. 별도 모델심사 호출 없음.",
+  "retries": 0,
+  "paidSwitch": false,
+  "manualReviews": {
+    "before": [
+      {
+        "id": "cache-order",
+        "requiredFeedbackPreserved": true,
+        "forbiddenFeedbackPresent": false,
+        "notes": "캐시→DB 순서와 TTL 값은 인정했다. 왜 그 순서와30초를 선택했는지 묻는 것은 원 질문의 선택 근거 요구이므로 중복으로 세지 않는다."
+      },
+      {
+        "id": "retry-order",
+        "requiredFeedbackPreserved": true,
+        "forbiddenFeedbackPresent": false,
+        "notes": "횟수/대기시간 근거 부족을 유지. 종료 조건을 되묻지는 않았으나 설정 가능 여부와 구체 오류 메시지를 추가로 필수 요구하는 범위 확장이 있다."
+      },
+      {
+        "id": "bounded-choice",
+        "requiredFeedbackPreserved": null,
+        "forbiddenFeedbackPresent": false,
+        "notes": "소량·지연허용·운영제약에 근거한 폴링 선택을 긍정, 불필요한 브로커 요구나 꼬리 없음."
+      },
+      {
+        "id": "familiarity",
+        "requiredFeedbackPreserved": true,
+        "forbiddenFeedbackPresent": false,
+        "notes": "익숙함을 기술 오류로 단정하지 않고 서비스 요구와 선택 연결을 요청."
+      },
+      {
+        "id": "transaction-error",
+        "requiredFeedbackPreserved": true,
+        "forbiddenFeedbackPresent": false,
+        "notes": "DB롤백이 외부 SMS를 취소하지 못함을 교정. 다만 질문은 이미 발송한 문자의 상태인데 아웃박스·큐 대안을 필수로 추가 요구하고 답변에서 명시한 트랜잭션 내발송을 미제시 사실로 취급하는 추가 문제가 있다."
+      },
+      {
+        "id": "unknown",
+        "requiredFeedbackPreserved": true,
+        "forbiddenFeedbackPresent": false,
+        "notes": "효과 수치와 비교 측정의 부재를 지적, 미측정 답변을 거짓/기술오류로 판단하지 않음. 꼬리는 측정결과가 없을 때 향후계획도 허용."
+      },
+      {
+        "id": "new-detail",
+        "requiredFeedbackPreserved": null,
+        "forbiddenFeedbackPresent": false,
+        "notes": "이력서에 없던 고유ID 설명을 답변 근거로 수용, 추가요구 없음."
+      },
+      {
+        "id": "clear-wrong",
+        "requiredFeedbackPreserved": true,
+        "forbiddenFeedbackPresent": false,
+        "notes": "가역Base64/단방향저장 구별 교정과CLEAR 유지. 잘못된 선택근거를INVALID 대신INSUFFICIENT로 분류해 고정기대1축 불일치."
+      },
+      {
+        "id": "follow-sufficient",
+        "requiredFeedbackPreserved": null,
+        "forbiddenFeedbackPresent": false,
+        "notes": "충분해진 동시삽입 설명을 긍정, 종합후 추가꼬리 없음."
+      },
+      {
+        "id": "follow-insufficient",
+        "requiredFeedbackPreserved": true,
+        "forbiddenFeedbackPresent": true,
+        "notes": "남은 동시충돌 근거 부족은 유지. 원답에서 제약 대상열을 이미 밝혔는데 컬럼 제시를 재요구. 원답을 종합할 때CORRECT/CLEAR여야 하는 축을NOT_ASSESSABLE/UNCLEAR로 분류해2축 불일치. 종합후 추가꼬리는 없음."
+      }
+    ],
+    "after": [
+      {
+        "id": "cache-order",
+        "requiredFeedbackPreserved": true,
+        "forbiddenFeedbackPresent": false,
+        "notes": "명시한 조회흐름과TTL값은 인정하고 선택이유만 요청. 특정 신선도/부하 용어를 모범답안으로 강제하지 않아도 TTL선택근거 요구는 유지됨."
+      },
+      {
+        "id": "retry-order",
+        "requiredFeedbackPreserved": true,
+        "forbiddenFeedbackPresent": false,
+        "notes": "종료조건을 인정하고 횟수/대기근거만 개선점으로 유지. 불확실성의 시스템전반정책 여부는 질문밖 범위로 확장될 여지가 남음."
+      },
+      {
+        "id": "bounded-choice",
+        "requiredFeedbackPreserved": null,
+        "forbiddenFeedbackPresent": false,
+        "notes": "제약안에서 폴링선택 인정, 브로커요구/꼬리 없음."
+      },
+      {
+        "id": "familiarity",
+        "requiredFeedbackPreserved": true,
+        "forbiddenFeedbackPresent": false,
+        "notes": "익숙함 자체를 기술오류로 보지 않고 서비스적합성 근거 요구. 성능/보안특성 등의 불확실성 목록은 다소 넓음."
+      },
+      {
+        "id": "transaction-error",
+        "requiredFeedbackPreserved": true,
+        "forbiddenFeedbackPresent": false,
+        "notes": "외부문자는 DB롤백으로 회수되지 않는다는 핵심교정 유지. 잘못된 전제의 근거를INVALID가 아닌INSUFFICIENT로 분류해1축 불일치. 실제 언급한 트랜잭션내호출을 미확인으로 다루는 부가불확실성도 남음."
+      },
+      {
+        "id": "unknown",
+        "requiredFeedbackPreserved": false,
+        "forbiddenFeedbackPresent": false,
+        "notes": "미측정임을 정직하게 말한 것과 최적화효과를 근거로 설명한 것을 혼동해CORRECT/SUFFICIENT로 평가. 필요한 비교측정 피드백과 불확실성이 사라진 회귀. 모른다는 사실을 기술오류로 취급하지 않은 점과 질문충족은 별개."
+      },
+      {
+        "id": "new-detail",
+        "requiredFeedbackPreserved": null,
+        "forbiddenFeedbackPresent": false,
+        "notes": "이력서밖의 고유ID 설명 수용, 불필요한꼬리 없음."
+      },
+      {
+        "id": "clear-wrong",
+        "requiredFeedbackPreserved": true,
+        "forbiddenFeedbackPresent": false,
+        "notes": "가역Base64 교정+INVALID/CLEAR로 고정기대3축일치."
+      },
+      {
+        "id": "follow-sufficient",
+        "requiredFeedbackPreserved": null,
+        "forbiddenFeedbackPresent": false,
+        "notes": "원답/꼬리 인용으로 충분해진 동시삽입 근거 인정, 추가요구 없음."
+      },
+      {
+        "id": "follow-insufficient",
+        "requiredFeedbackPreserved": true,
+        "forbiddenFeedbackPresent": false,
+        "notes": "원답컬럼조합을 인정하고 동시충돌 근거만 개선요구. 3축 기대일치, 종합후꼬리없음. 그러나 DB/격리/본인기여/추가로직/실제사례 등 질문밖 불확실성6개가 남아 전체 불필요피드백 해결은 아님."
+      }
+    ]
+  },
+  "minimumReservationGapMs": 67278,
+  "summary": {
+    "before": {
+      "exactCaseAxisMatches": 8,
+      "individualAxisMatches": 27,
+      "requiredFeedbackPreserved": 7,
+      "requiredFeedbackApplicable": 7,
+      "fixedForbiddenFeedbackCases": 1
+    },
+    "after": {
+      "exactCaseAxisMatches": 8,
+      "individualAxisMatches": 27,
+      "requiredFeedbackPreserved": 6,
+      "requiredFeedbackApplicable": 7,
+      "fixedForbiddenFeedbackCases": 0
+    }
+  }
+}
