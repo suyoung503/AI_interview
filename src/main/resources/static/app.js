@@ -414,6 +414,25 @@ function evaluationCard(answer, index, total) {
         group.append(el('h4', '', label), items?.length ? listItems(items) : el('p', 'fine', '기록된 항목 없음'));
         card.append(group);
     }
+    if (evaluation.assessments?.length) {
+        const details = el('details', 'details');
+        details.append(el('summary', '', '판단 근거 보기'));
+        const labels = { TECHNICAL_ACCURACY: '기술적 정확성', REASONING: '근거', CLARITY: '설명력' };
+        for (const assessment of evaluation.assessments) {
+            const group = el('div', 'feedback-group');
+            group.append(el('h4', '', labels[assessment.axis] || assessment.axis));
+            for (const evidence of assessment.evidence ?? []) {
+                const source = evidence.source === 'FOLLOW_UP_ANSWER' ? '꼬리 답변' : '원답';
+                group.append(el('p', 'fine', source), el('blockquote', 'long-text', evidence.quote));
+            }
+            group.append(el('p', 'fine', '충족한 사항'), assessment.coveredPoints?.length
+                ? listItems(assessment.coveredPoints) : el('p', 'fine', '기록된 항목 없음'));
+            group.append(el('p', 'fine', '남은 개선점'), assessment.improvements?.length
+                ? listItems(assessment.improvements) : el('p', 'fine', '기록된 항목 없음'));
+            details.append(group);
+        }
+        card.append(details);
+    }
     return card;
 }
 

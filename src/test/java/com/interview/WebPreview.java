@@ -133,11 +133,20 @@ public final class WebPreview {
                 result.put("technicalAccuracy", comprehensive ? "CORRECT" : "NOT_ASSESSABLE");
                 result.put("reasoning", comprehensive ? "SUFFICIENT" : "INSUFFICIENT");
                 result.put("clarity", "CLEAR");
-                result.put("strengths", List.of("해결한 문제를 짧게 설명했습니다."));
-                result.put("improvements", List.of("비교 기준이나 수치로 판단 근거를 설명해 보세요."));
-                result.put("uncertainties", List.of("개선 전후의 조건이 같았는지는 알 수 없습니다."));
-                result.put("summary", "로컬 테스트용 평가");
-                if (!comprehensive) result.put("followUpQuestion", "선택이 적절했는지 확인한 지표나 비교 기준은 무엇인가요?");
+                int length = answer.codePointCount(0, answer.length());
+                String quote = answer.substring(0, answer.offsetByCodePoints(0, Math.min(160, length)));
+                var evidence = List.of(Map.of("source", comprehensive ? "FOLLOW_UP_ANSWER" : "ORIGINAL_ANSWER", "quote", quote));
+                result.put("assessments", List.of(
+                        Map.of("axis", "TECHNICAL_ACCURACY", "evidence", evidence,
+                                "coveredPoints", List.of("해결한 문제를 설명했습니다."), "improvements", List.of()),
+                        Map.of("axis", "REASONING", "evidence", evidence, "coveredPoints", List.of(),
+                                "improvements", comprehensive ? List.of() : List.of("선택의 판단 기준을 설명해 보세요.")),
+                        Map.of("axis", "CLARITY", "evidence", evidence, "coveredPoints", List.of(), "improvements", List.of())));
+                result.put("uncertainties", List.of("개선 전후의 조건이 같았는지는 확인할 수 없습니다."));
+                if (!comprehensive) {
+                    result.put("followUpAxis", "REASONING");
+                    result.put("followUpQuestion", "선택이 적절했는지 확인한 지표나 비교 기준은 무엇인가요?");
+                }
             }
             byte[] body = GroqStub.wrapContent(JSON.writeValueAsString(result), "stop", null).getBytes(StandardCharsets.UTF_8);
             exchange.getResponseHeaders().set("Content-Type", "application/json");

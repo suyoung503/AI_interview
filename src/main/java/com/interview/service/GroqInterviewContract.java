@@ -1,6 +1,8 @@
 package com.interview.service;
 
 import com.interview.dto.InterviewAiModels.Clarity;
+import com.interview.dto.InterviewAiModels.Axis;
+import com.interview.dto.InterviewAiModels.EvidenceSource;
 import com.interview.dto.InterviewAiModels.Reasoning;
 import com.interview.dto.InterviewAiModels.TechnicalAccuracy;
 
@@ -13,7 +15,7 @@ final class GroqInterviewContract {
 
     private GroqInterviewContract() {}
 
-    static final String VERSION = "resume-interview-v4";
+    static final String VERSION = "resume-interview-v5";
     static final List<String> EVALUATION_CRITERIA = List.of("기술적 정확성", "근거", "설명력");
     static final int QUESTION_COUNT = 5;
     static final int QUESTION_MAX = 500;
@@ -21,7 +23,8 @@ final class GroqInterviewContract {
     static final int INTENT_MAX = 500;
     static final int LIST_ITEM_MAX = 500;
     static final int LIST_MAX = 8;
-    static final int SUMMARY_MAX = 1_500;
+    static final int EVIDENCE_QUOTE_MAX = 200;
+    static final int AXIS_ITEM_MAX = 2;
 
     private static final String COMMON = """
             당신은 IT 기술 면접을 지도하는 코치입니다.
@@ -55,18 +58,29 @@ final class GroqInterviewContract {
             지원자가 한 잘못된 주장과 이를 바로잡는 설명을 구분하세요. 동작이 설정·환경에 따라 달라진다면
             해당 조건이 성립할 때와 성립하지 않을 때를 나누어 설명하세요. 조건부 동작을 보편적인 사실로 단정하지 마세요.
             주장이 틀렸더라도 전달은 명확할 수 있습니다. 정확성과 설명력을 별도로 판단하세요.
-            strengths에는 답변에 실제로 나타난 강점만, improvements에는 질문 의도에 비추어 실제로 부족한 점만 쓰세요.
+            먼저 실제 원답·꼬리 답변을 각 축의 판단과 대조하고, 이미 설명한 사실과 아직 부족한 사항을 구분하세요.
+            assessments에는 TECHNICAL_ACCURACY, REASONING, CLARITY 세 축을 각각 한 번씩 넣으세요.
+            각 축 evidence는 1~2개이며 source는 ORIGINAL_ANSWER 또는 FOLLOW_UP_ANSWER입니다.
+            quote는 해당 답변에 실제 있는 연속 구간을 공백·줄바꿈까지 그대로 인용하고 최대 %d자입니다.
+            질문이나 이력서·초기 평가가 아니라 지정한 실제 답변을 인용하세요. 꼬리 답변이 없으면 FOLLOW_UP_ANSWER를 쓰지 마세요.
+            각 축 coveredPoints에는 답변에서 실제 인정할 강점·충족한 사항만, improvements에는 그 축의 실제 부족한 점만 쓰세요.
+            잘못된 주장이나 단순 언급 자체를 충족 사항으로 인정하지 마세요. 같은 내용을 충족했다고 인정하면서 다시 요구하지 마세요.
+            기술적 오류가 있어도 근거가 충분하거나 전달이 명확할 수 있습니다. 다른 축까지 기계적으로 감점하지 마세요.
+            CORRECT·SUFFICIENT·CLEAR인 축의 improvements는 빈 배열입니다. 음성 축의 실제 오류·정보 부족은 유지하세요.
             이미 답한 사항을 다시 요구하거나 선택적인 심화 비교를 필수 개선점·불확실성으로 넣지 마세요.
             확인할 수 없는 사실이나 경험·본인 기여·수치는 uncertainties에 적으세요.
             제시되지 않은 사실·수치·이유를 만들어내거나 하지 않은 검증을 하도록 유도하지 마세요.
-            실제 해당 사항이 없으면 빈 배열을 사용하고, 있으면 중요한 1~3가지에 집중하세요. 개수를 채우지 마세요.
-            strengths, improvements, uncertainties는 각각 최대 %d개, 각 항목은 최대 %d자입니다.
-            summary는 최대 %d자입니다. 숫자 점수를 부여하지 마세요.
-            """.formatted(LIST_MAX, LIST_ITEM_MAX, SUMMARY_MAX);
-    static final String INITIAL_PROMPT = EVALUATION_PROMPT
-            + "추가 정보가 꼭 필요한 경우에만 followUpQuestion에 최대 %d자의 질문 하나를 넣고, 아니면 null을 넣으세요.".formatted(QUESTION_MAX);
+            coveredPoints와 improvements는 각 축마다 0~2개, 항목은 최대 %d자입니다. 개수를 채우지 마세요.
+            uncertainties는 최대 %d개, 항목은 최대 %d자입니다. 숫자 점수를 부여하지 마세요.
+            strengths·summary 같은 추가 필드를 출력하지 마세요.
+            """.formatted(EVIDENCE_QUOTE_MAX, LIST_ITEM_MAX, LIST_MAX, LIST_ITEM_MAX);
+    static final String INITIAL_PROMPT = EVALUATION_PROMPT + """
+            실제 부족한 축에 추가 정보가 꼭 필요한 경우에만 followUpAxis에 그 축을,
+            followUpQuestion에 최대 %d자의 질문 하나를 넣으세요. 대상 축에는 실제 improvements가 있어야 합니다.
+            추가 질문이 필요 없으면 두 필드를 모두 null로 넣으세요.
+            """.formatted(QUESTION_MAX);
     static final String COMPREHENSIVE_PROMPT = EVALUATION_PROMPT
-            + "이미 꼬리 답변까지 받았습니다. 불충분하면 한계를 평가하고 종료하세요. 다음 질문 필드는 출력하지 마세요.";
+            + "이미 꼬리 답변까지 받았습니다. 새 답변으로 충족된 사항은 인정하고, 남은 한계를 평가하고 종료하세요. followUpAxis와 followUpQuestion은 출력하지 마세요.";
 
     private static final Map<String, String> TEXT = Map.of("type", "string");
     private static final Map<String, Object> TEXT_LIST = arrayOf(TEXT);
@@ -78,16 +92,22 @@ final class GroqInterviewContract {
             "status", Map.of("type", "string", "enum", List.of("OK", "INSUFFICIENT_RESUME")),
             "questions", arrayOf(QUESTION))));
 
+    private static final Map<String, Object> EVIDENCE = object(Map.of(
+            "source", enumeration(EvidenceSource.values()), "quote", TEXT));
+    private static final Map<String, Object> ASSESSMENT = object(Map.of(
+            "axis", enumeration(Axis.values()), "evidence", arrayOf(EVIDENCE),
+            "coveredPoints", TEXT_LIST, "improvements", TEXT_LIST));
     static final Map<String, Object> COMPREHENSIVE_FIELDS = Map.of(
             "technicalAccuracy", enumeration(TechnicalAccuracy.values()), "reasoning", enumeration(Reasoning.values()),
-            "clarity", enumeration(Clarity.values()), "strengths", TEXT_LIST, "improvements", TEXT_LIST,
-            "uncertainties", TEXT_LIST, "summary", TEXT);
+            "clarity", enumeration(Clarity.values()), "assessments", arrayOf(ASSESSMENT), "uncertainties", TEXT_LIST);
     static final Map<String, Object> INITIAL_FIELDS = initialFields();
     static final Map<String, Object> INITIAL_FORMAT = responseFormat("interview_evaluation", object(INITIAL_FIELDS));
     static final Map<String, Object> COMPREHENSIVE_FORMAT = responseFormat("interview_evaluation", object(COMPREHENSIVE_FIELDS));
 
     private static Map<String, Object> initialFields() {
         var fields = new HashMap<>(COMPREHENSIVE_FIELDS);
+        fields.put("followUpAxis", Map.of("type", List.of("string", "null"),
+                "enum", Arrays.asList("TECHNICAL_ACCURACY", "REASONING", "CLARITY", null)));
         fields.put("followUpQuestion", Map.of("type", List.of("string", "null")));
         return Map.copyOf(fields);
     }

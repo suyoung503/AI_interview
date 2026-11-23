@@ -86,6 +86,33 @@ public final class GroqStub implements AutoCloseable {
                 "usage", Map.of("prompt_tokens", 10, "completion_tokens", 20, "total_tokens", 30)));
     }
 
+    // Explicit fixture builders: respondContent itself never repairs malformed provider output.
+    public static String groundedEvaluation(String legacy, String quote) {
+        var node = JSON.readTree(legacy);
+        var assessments = List.of("TECHNICAL_ACCURACY", "REASONING", "CLARITY").stream().map(axis -> Map.of(
+                "axis", axis, "evidence", List.of(Map.of("source", "ORIGINAL_ANSWER", "quote", quote)),
+                "coveredPoints", axis.equals("TECHNICAL_ACCURACY") ? node.path("strengths") : List.of(),
+                "improvements", axis.equals("REASONING") ? node.path("improvements") : List.of())).toList();
+        var fields = new LinkedHashMap<String, Object>();
+        node.properties().forEach(entry -> fields.put(entry.getKey(), entry.getValue()));
+        fields.put("assessments", assessments);
+        if (node.hasNonNull("followUpQuestion")) fields.put("followUpAxis", "REASONING");
+        return JSON.writeValueAsString(fields);
+    }
+
+    public static String providerEvaluation(String publicEvaluation, boolean comprehensive) {
+        var fields = new LinkedHashMap<String, Object>();
+        var node = JSON.readTree(publicEvaluation);
+        for (String key : List.of("technicalAccuracy", "reasoning", "clarity", "assessments", "uncertainties")) {
+            fields.put(key, node.path(key));
+        }
+        if (!comprehensive) {
+            fields.put("followUpQuestion", node.path("followUpQuestion"));
+            fields.put("followUpAxis", node.has("followUpAxis") ? node.path("followUpAxis") : null);
+        }
+        return JSON.writeValueAsString(fields);
+    }
+
     private void handle(HttpExchange exchange) throws IOException {
         try (exchange) {
             requests.add(new Request(exchange.getRequestMethod(), exchange.getRequestURI().getPath(),

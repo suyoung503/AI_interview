@@ -22,6 +22,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.slf4j.LoggerFactory;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.node.ObjectNode;
 
 import java.io.IOException;
 import java.time.Duration;
@@ -46,20 +47,20 @@ class GroqServiceTest {
     private static final String FOLLOW_UP = "SLA 기준을 구체적으로 설명해 주세요.";
     private static final Evaluation INITIAL = new Evaluation(TechnicalAccuracy.NOT_ASSESSABLE, Reasoning.INSUFFICIENT,
             Clarity.CLEAR, List.of(), List.of("기준 구체화"), List.of("SLA 기준 불명"), "근거가 부족합니다.", FOLLOW_UP);
-    private static final String EVALUATION_JSON = """
+    private static final String EVALUATION_JSON = GroqStub.providerEvaluation(GroqStub.groundedEvaluation("""
             {"technicalAccuracy":"INCORRECT","reasoning":"INVALID","clarity":"CLEAR",
              "strengths":["정책을 제시함"],"improvements":["TTL은 즉시 일관성을 보장하지 않음"],
              "uncertainties":[],"summary":"기술적 일반화에 오류가 있습니다.","followUpQuestion":null}
-            """;
+            """, "업무 SLA에 맞췄습니다."), false);
 
-    private static final String ADEQUATE_DRAFT = """
+    private static final String ADEQUATE_DRAFT = GroqStub.providerEvaluation(GroqStub.groundedEvaluation("""
             {"technicalAccuracy":"CORRECT","reasoning":"SUFFICIENT","clarity":"CLEAR",
              "strengths":["세 인스턴스가 목록을 공유하는 이유를 설명함"],"improvements":["인스턴스 수가 빠짐"],
              "uncertainties":["추가 제품 비교가 없음"],"summary":"선택 이유가 부족함","followUpQuestion":"대안은?"}
-            """;
+            """, "세 인스턴스"), false);
 
     private static final List<String> AXES = List.of("기술적 정확성", "근거", "설명력");
-    private static final String COMPREHENSIVE_JSON = EVALUATION_JSON.replace(",\"followUpQuestion\":null", "");
+    private static final String COMPREHENSIVE_JSON = GroqStub.providerEvaluation(EVALUATION_JSON, true);
 
     private GroqStub stub;
     private GroqService service;
@@ -73,6 +74,116 @@ class GroqServiceTest {
     @AfterEach
     void close() {
         stub.close();
+    }
+
+    @Test
+    void acceptsGroundedAxisAssessmentsAndDerivesFlatFeedback() {
+        stub.respondContent("""
+                {"technicalAccuracy":"CORRECT","reasoning":"INSUFFICIENT","clarity":"CLEAR",
+                 "assessments":[
+                   {"axis":"TECHNICAL_ACCURACY","evidence":[{"source":"ORIGINAL_ANSWER","quote":"업무 SLA에 맞췄습니다."}],"coveredPoints":["정책 제시"],"improvements":["양성 축에서 제거"]},
+                   {"axis":"REASONING","evidence":[{"source":"ORIGINAL_ANSWER","quote":"신선도 🎯"}],"coveredPoints":["정책 제시"],"improvements":["SLA 조건 설명"]},
+                   {"axis":"CLARITY","evidence":[{"source":"ORIGINAL_ANSWER","quote":"업무 SLA에 맞췄습니다."}],"coveredPoints":[],"improvements":[]}],
+                 "uncertainties":[],"followUpAxis":"REASONING","followUpQuestion":"SLA 조건은?"}
+                """);
+        Evaluation result = service.evaluate(initialContext());
+        assertThat(result.strengths()).containsExactly("정책 제시");
+        assertThat(result.improvements()).containsExactly("SLA 조건 설명");
+        assertThat(result.followUpQuestion()).isEqualTo("SLA 조건은?");
+    }
+
+    @ParameterizedTest
+    @MethodSource("invalidGrounding")
+    void rejectsMalformedGroundingIncludingValuesThatWouldBeFiltered(String output) {
+        stub.respondContent(output);
+        assertFailure(502, () -> service.evaluate(initialContext()));
+    }
+
+    static Stream<String> invalidGrounding() {
+        var valid = (ObjectNode) JSON.readTree(EVALUATION_JSON);
+        return Stream.<java.util.function.Consumer<ObjectNode>>of(
+                node -> node.remove("assessments"),
+                node -> node.put("summary", "provider summary is forbidden"),
+                node -> node.set("assessments", JSON.readTree("[]")),
+                node -> node.set("assessments", JSON.readTree("null")),
+                node -> ((tools.jackson.databind.node.ArrayNode) node.path("assessments")).remove(0),
+                node -> ((tools.jackson.databind.node.ArrayNode) node.path("assessments")).add(node.at("/assessments/0")),
+                node -> ((ObjectNode) node.at("/assessments/0")).put("axis", "OTHER"),
+                node -> ((ObjectNode) node.at("/assessments/0")).remove("coveredPoints"),
+                node -> ((ObjectNode) node.at("/assessments/0")).set("evidence", JSON.readTree("[]")),
+                node -> ((tools.jackson.databind.node.ArrayNode) node.at("/assessments/0/evidence"))
+                        .add(node.at("/assessments/0/evidence/0")).add(node.at("/assessments/0/evidence/0")),
+                node -> ((ObjectNode) node.at("/assessments/0/evidence/0")).put("source", "RESUME"),
+                node -> ((ObjectNode) node.at("/assessments/0/evidence/0")).remove("source"),
+                node -> ((ObjectNode) node.at("/assessments/0/evidence/0")).put("extra", true),
+                node -> ((ObjectNode) node.at("/assessments/0/evidence/0")).put("quote", " "),
+                node -> ((ObjectNode) node.at("/assessments/0/evidence/0")).put("quote", "🚀".repeat(201)),
+                node -> ((ObjectNode) node.at("/assessments/2")).set("improvements", JSON.readTree("[false]")),
+                node -> ((ObjectNode) node.at("/assessments/2")).set("improvements", JSON.valueToTree(List.of("가".repeat(501)))),
+                node -> ((ObjectNode) node.at("/assessments/2")).set("coveredPoints", JSON.valueToTree(List.of("하나", "둘", "셋"))),
+                node -> ((ObjectNode) node.at("/assessments/2")).set("improvements", JSON.valueToTree(List.of("하나", "둘", "셋"))),
+                node -> node.set("uncertainties", JSON.valueToTree(java.util.Collections.nCopies(9, "불명"))),
+                node -> node.put("followUpAxis", "OTHER"),
+                node -> node.put("followUpQuestion", "질문만 있고 축은 없음"),
+                node -> node.put("followUpAxis", "REASONING"))
+                .map(change -> { var node = valid.deepCopy(); change.accept(node); return JSON.writeValueAsString(node); });
+    }
+
+    @Test
+    void acceptsTwoEvidenceItemsAndTwoAxisItemsWithoutSplittingUnicodeCharacters() {
+        String answer = "🚀".repeat(200);
+        String output = GroqStub.providerEvaluation(GroqStub.groundedEvaluation(JSON.writeValueAsString(INITIAL), answer), false);
+        var node = (ObjectNode) JSON.readTree(output);
+        var evidence = (tools.jackson.databind.node.ArrayNode) node.at("/assessments/0/evidence");
+        evidence.add(evidence.get(0));
+        ((ObjectNode) node.at("/assessments/1")).set("improvements", JSON.valueToTree(List.of("첫째", "둘째")));
+        stub.respondContent(JSON.writeValueAsString(node));
+        var result = service.evaluate(new EvaluationContext(ORIGINAL, answer, null, null, null));
+        assertThat(result.assessments().get(0).evidence()).hasSize(2);
+        assertThat(result.assessments().get(0).evidence().get(0).quote()).isEqualTo(answer);
+        assertThat(result.improvements()).containsExactly("첫째", "둘째");
+    }
+
+    @Test
+    void comprehensiveEvidenceMustMatchItsOwnAnswerNotAnotherInput() {
+        var node = (ObjectNode) JSON.readTree(COMPREHENSIVE_JSON);
+        ((ObjectNode) node.at("/assessments/1/evidence/0")).put("source", "FOLLOW_UP_ANSWER");
+        ((ObjectNode) node.at("/assessments/1/evidence/0")).put("quote", "추가 설명");
+        stub.respondContent(JSON.writeValueAsString(node));
+        var result = service.evaluate(new EvaluationContext(ORIGINAL, ORIGINAL_ANSWER, INITIAL, FOLLOW_UP, "추가 설명"));
+        assertThat(result.assessments().get(1).evidence().get(0).source().name()).isEqualTo("FOLLOW_UP_ANSWER");
+        assertThat(result.followUpAxis()).isNull();
+    }
+
+    @Test
+    void rejectsQuoteThatExistsOnlyInTheOtherAnswer() {
+        var node = (ObjectNode) JSON.readTree(COMPREHENSIVE_JSON);
+        ((ObjectNode) node.at("/assessments/1/evidence/0")).put("source", "FOLLOW_UP_ANSWER");
+        stub.respondContent(JSON.writeValueAsString(node));
+        assertFailure(502, () -> service.evaluate(new EvaluationContext(ORIGINAL, ORIGINAL_ANSWER, INITIAL,
+                FOLLOW_UP, "이 인용은 원답에만 있음")));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"CLARITY", "TECHNICAL_ACCURACY"})
+    void removesFollowUpTargetingPositiveOrGaplessAxis(String target) {
+        var node = (ObjectNode) JSON.readTree(EVALUATION_JSON);
+        node.put("followUpAxis", target);
+        node.put("followUpQuestion", "추가 질문");
+        stub.respondContent(JSON.writeValueAsString(node));
+        var result = service.evaluate(initialContext());
+        assertThat(result.followUpQuestion()).isNull();
+        assertThat(result.followUpAxis()).isNull();
+        assertThat(result.improvements()).containsExactly("TTL은 즉시 일관성을 보장하지 않음");
+    }
+
+    @Test
+    void providerCannotAddEvenNullFollowUpAxisToFinalEvaluation() {
+        var node = (ObjectNode) JSON.readTree(COMPREHENSIVE_JSON);
+        node.putNull("followUpAxis");
+        stub.respondContent(JSON.writeValueAsString(node));
+        assertFailure(502, () -> service.evaluate(new EvaluationContext(ORIGINAL, ORIGINAL_ANSWER, INITIAL,
+                FOLLOW_UP, "최종 답변")));
     }
 
     @Test
@@ -96,18 +207,18 @@ class GroqServiceTest {
                 "세 인스턴스가 같은 목록을 읽고 30초 지연을 허용합니다. 한 대라면 로컬 캐시가 더 단순합니다.",
                 null, null, null));
 
-        assertThat(evaluation).isEqualTo(new Evaluation(TechnicalAccuracy.CORRECT, Reasoning.SUFFICIENT,
+        assertThat(evaluation).usingRecursiveComparison().ignoringFields("assessments", "followUpAxis").isEqualTo(new Evaluation(TechnicalAccuracy.CORRECT, Reasoning.SUFFICIENT,
                 Clarity.CLEAR, List.of("세 인스턴스가 목록을 공유하는 이유를 설명함"), List.of(), List.of(),
                 "기술적 정확성: 정확함. 근거: 충분함. 설명력: 명확함.", null));
     }
 
     @Test
     void evaluatesAnswerWithoutScoreAndSendsExactQuestionEvidenceAndAnswer() {
-        stub.respondContent(EVALUATION_JSON.replace("기술적 일반화에 오류가 있습니다.", "세 축 모두 부적절함"));
+        stub.respondContent(EVALUATION_JSON);
 
         Evaluation evaluation = service.evaluate(initialContext());
 
-        assertThat(evaluation).isEqualTo(new Evaluation(TechnicalAccuracy.INCORRECT, Reasoning.INVALID, Clarity.CLEAR,
+        assertThat(evaluation).usingRecursiveComparison().ignoringFields("assessments", "followUpAxis").isEqualTo(new Evaluation(TechnicalAccuracy.INCORRECT, Reasoning.INVALID, Clarity.CLEAR,
                 List.of("정책을 제시함"), List.of("TTL은 즉시 일관성을 보장하지 않음"), List.of(),
                 "기술적 정확성: 오류 있음. 근거: 타당하지 않음. 설명력: 명확함.", null));
         JsonNode data = assertRequest("interview_evaluation");
@@ -120,9 +231,9 @@ class GroqServiceTest {
 
     @Test
     void acceptsHonestUncertaintyWithOneClarifyingQuestion() {
-        stub.respondContent(JSON.writeValueAsString(INITIAL));
+        stub.respondContent(GroqStub.providerEvaluation(GroqStub.groundedEvaluation(JSON.writeValueAsString(INITIAL), "업무 SLA에 맞췄습니다."), false));
 
-        assertThat(service.evaluate(initialContext())).isEqualTo(new Evaluation(TechnicalAccuracy.NOT_ASSESSABLE,
+        assertThat(service.evaluate(initialContext())).usingRecursiveComparison().ignoringFields("assessments", "followUpAxis").isEqualTo(new Evaluation(TechnicalAccuracy.NOT_ASSESSABLE,
                 Reasoning.INSUFFICIENT, Clarity.CLEAR, List.of(), List.of("기준 구체화"), List.of("SLA 기준 불명"),
                 "기술적 정확성: 판단할 정보 부족. 근거: 부족함. 설명력: 명확함.", FOLLOW_UP));
         assertThat(stub.requests()).hasSize(1);
@@ -158,11 +269,11 @@ class GroqServiceTest {
         assertClosedSchema(initial);
         assertClosedSchema(comprehensive);
         assertThat(initial.path("properties").propertyNames()).containsExactlyInAnyOrder("technicalAccuracy",
-                "reasoning", "clarity", "strengths", "improvements", "uncertainties", "summary", "followUpQuestion");
+                "reasoning", "clarity", "assessments", "uncertainties", "followUpAxis", "followUpQuestion");
         assertThat(initial.at("/properties/followUpQuestion/type").values().stream().map(JsonNode::stringValue).toList())
                 .containsExactlyInAnyOrder("string", "null");
         assertThat(comprehensive.path("properties").propertyNames()).containsExactlyInAnyOrder("technicalAccuracy",
-                "reasoning", "clarity", "strengths", "improvements", "uncertainties", "summary");
+                "reasoning", "clarity", "assessments", "uncertainties");
     }
 
     @Test
@@ -174,7 +285,7 @@ class GroqServiceTest {
 
     @Test
     void rejectsSecondFollowUpInsteadOfReturningItAsNormalEvaluation() {
-        stub.respondContent(JSON.writeValueAsString(INITIAL));
+        stub.respondContent(GroqStub.providerEvaluation(GroqStub.groundedEvaluation(JSON.writeValueAsString(INITIAL), "업무 SLA에 맞췄습니다."), false));
 
         assertFailure(502, () -> service.evaluate(new EvaluationContext(ORIGINAL, ORIGINAL_ANSWER, INITIAL,
                 FOLLOW_UP, "추가 설명")));
@@ -224,23 +335,21 @@ class GroqServiceTest {
 
     static Stream<String> invalidEvaluations() {
         return Stream.of(
-                ADEQUATE_DRAFT.replace("대안은?", " "),
-                ADEQUATE_DRAFT.replace("인스턴스 수가 빠짐", "가".repeat(501)),
-                ADEQUATE_DRAFT.replace("선택 이유가 부족함", ""),
-                "{",
-                EVALUATION_JSON + "{}",
-                COMPREHENSIVE_JSON, // 원답은 null인 경우에도 followUpQuestion 키가 필요하다.
-                EVALUATION_JSON.replace("\"INCORRECT\"", "\"UNKNOWN\""),
+                "{", EVALUATION_JSON + "{}", COMPREHENSIVE_JSON,
+                EVALUATION_JSON.replace("INCORRECT", "UNKNOWN"),
                 EVALUATION_JSON.replace("\"INVALID\"", "0"),
                 EVALUATION_JSON.replace("\"CLEAR\"", "\"UNCERTAIN\""),
-                EVALUATION_JSON.replace("\"기술적 일반화에 오류가 있습니다.\"", "[\"요약\"]"),
-                EVALUATION_JSON.replace("\"기술적 일반화에 오류가 있습니다.\"", "\"\""),
-                EVALUATION_JSON.replace("\"기술적 일반화에 오류가 있습니다.\"", "\"" + "가".repeat(1501) + "\""),
-                EVALUATION_JSON.replace("[]", "null"),
-                EVALUATION_JSON.replace("[]", "[false]"),
                 EVALUATION_JSON.replace("\"followUpQuestion\":null", "\"score\":10"),
                 EVALUATION_JSON.replace("\"followUpQuestion\":null", "\"followUpQuestion\":\"\""),
-                EVALUATION_JSON.replace("\"clarity\":\"CLEAR\"", "\"clarity\":\"CLEAR\",\"clarity\":\"CLEAR\""));
+                EVALUATION_JSON.replace("\"clarity\":\"CLEAR\"", "\"clarity\":\"CLEAR\",\"clarity\":\"CLEAR\""),
+                EVALUATION_JSON.replace("업무 SLA에 맞췄습니다.", "답변에 없는 인용"),
+                EVALUATION_JSON.replace("ORIGINAL_ANSWER", "FOLLOW_UP_ANSWER"),
+                EVALUATION_JSON.replace("TECHNICAL_ACCURACY", "REASONING"),
+                EVALUATION_JSON.replace("TTL은 즉시 일관성을 보장하지 않음", "가".repeat(501)),
+                EVALUATION_JSON.replace("\"coveredPoints\":[]", "\"coveredPoints\":[false]"),
+                EVALUATION_JSON.replace("\"evidence\":[{", "\"extra\":1,\"evidence\":[{"),
+                EVALUATION_JSON.replace("\"followUpAxis\":null", "\"followUpAxis\":\"REASONING\""),
+                ADEQUATE_DRAFT.replace("세 인스턴스", "업무 SLA에 맞췄습니다.").replace("인스턴스 수가 빠짐", "가".repeat(501)));
     }
 
     @ParameterizedTest

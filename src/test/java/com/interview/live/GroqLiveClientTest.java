@@ -31,10 +31,10 @@ class GroqLiveClientTest {
     @Test
     void permitsSixRequestsThenStopsBothGenerationAndEvaluationBeforeHttp() throws Exception {
         try (var stub = new GroqStub()) {
-            stub.respondContent("""
+            stub.respondContent(GroqStub.providerEvaluation(GroqStub.groundedEvaluation("""
                     {"technicalAccuracy":"CORRECT","reasoning":"SUFFICIENT","clarity":"CLEAR",
                      "strengths":[],"improvements":[],"uncertainties":[],"summary":"점검용","followUpQuestion":null}
-                    """);
+                    """, "가상 답변"), false));
             var client = new GroqLiveClient("dummy-key", stub.endpoint(), 6);
             var context = new EvaluationContext(new GeneratedQuestion("근거는?", "캐시", "선택 이유",
                     List.of("근거")), "가상 답변", null, null, null);

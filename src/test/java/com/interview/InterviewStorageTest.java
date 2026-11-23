@@ -8,6 +8,11 @@ import com.interview.dto.InterviewAiModels.TechnicalAccuracy;
 import com.interview.dto.SessionResponse;
 import com.interview.dto.StatsResponse;
 import com.interview.entity.Answer;
+import com.interview.entity.InterviewJsonConverters.EvaluationConverter;
+import com.interview.dto.InterviewAiModels.Axis;
+import com.interview.dto.InterviewAiModels.AxisAssessment;
+import com.interview.dto.InterviewAiModels.AnswerEvidence;
+import com.interview.dto.InterviewAiModels.EvidenceSource;
 import com.interview.entity.Category;
 import com.interview.entity.Question;
 import com.interview.entity.Resume;
@@ -64,6 +69,38 @@ class InterviewStorageTest {
     @Autowired private StatsService statsService;
     @Autowired private JdbcTemplate jdbc;
     @Autowired private PlatformTransactionManager transactionManager;
+
+    @Test
+    void preservesLegacyEightFieldJsonWithoutAddingNewFields() {
+        var converter = new EvaluationConverter();
+        String original = converter.convertToDatabaseColumn(INITIAL);
+        assertThat(original).doesNotContain("assessments", "followUpAxis");
+        Evaluation restored = converter.convertToEntityAttribute(original);
+        assertThat(restored).isEqualTo(INITIAL);
+        assertThat(restored.assessments()).isNull();
+        assertThat(restored.followUpAxis()).isNull();
+        assertThat(converter.convertToDatabaseColumn(restored)).isEqualTo(original);
+    }
+
+    @Test
+    void persistsGroundedAssessmentsWithoutChangingLegacyRows() {
+        var assessments = List.of(new AxisAssessment(Axis.REASONING,
+                List.of(new AnswerEvidence(EvidenceSource.ORIGINAL_ANSWER, "익숙한 기술이었습니다.")),
+                List.of("선택 제약 설명"), List.of("요구사항과 연결")));
+        var current = new Evaluation(INITIAL.technicalAccuracy(), INITIAL.reasoning(), INITIAL.clarity(),
+                INITIAL.strengths(), INITIAL.improvements(), INITIAL.uncertainties(), INITIAL.summary(),
+                INITIAL.followUpQuestion(), assessments, Axis.REASONING);
+        var transactions = new TransactionTemplate(transactionManager);
+        Long id = transactions.execute(status -> {
+            var session = newResumeSession(newUser());
+            var question = questions.save(Question.root(session, 1, generatedQuestion()));
+            return answers.save(Answer.evaluated(question, "익숙한 기술이었습니다.", current,
+                    "test-model", "resume-interview-v5")).getId();
+        });
+        transactions.executeWithoutResult(status -> assertThat(answers.findById(id).orElseThrow().getEvaluation()).isEqualTo(current));
+        assertThatThrownBy(() -> current.assessments().clear()).isInstanceOf(UnsupportedOperationException.class);
+        assertThatThrownBy(() -> current.assessments().get(0).evidence().clear()).isInstanceOf(UnsupportedOperationException.class);
+    }
 
     @Test
     void reloadsResumeOrderedQuestionsAndBothEvaluationsInANewTransaction() {

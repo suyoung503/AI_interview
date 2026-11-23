@@ -1,6 +1,10 @@
 package com.interview.service;
 
 import com.interview.dto.InterviewAiModels.Clarity;
+import com.interview.dto.InterviewAiModels.Axis;
+import com.interview.dto.InterviewAiModels.AxisAssessment;
+import com.interview.dto.InterviewAiModels.AnswerEvidence;
+import com.interview.dto.InterviewAiModels.EvidenceSource;
 import com.interview.dto.InterviewAiModels.Evaluation;
 import com.interview.dto.InterviewAiModels.EvaluationContext;
 import com.interview.dto.InterviewAiModels.GeneratedQuestion;
@@ -130,17 +134,66 @@ public class GroqService {
         requireFields(result, (comprehensive ? COMPREHENSIVE_FIELDS : INITIAL_FIELDS).keySet());
         String followUp = comprehensive || result.get("followUpQuestion").isNull()
                 ? null : text(result.get("followUpQuestion"), QUESTION_MAX);
-        var draft = new Evaluation(
-                enumValue(result.path("technicalAccuracy"), TechnicalAccuracy.class),
-                enumValue(result.path("reasoning"), Reasoning.class),
-                enumValue(result.path("clarity"), Clarity.class),
-                textList(result.path("strengths")),
-                textList(result.path("improvements")),
-                textList(result.path("uncertainties")),
-                text(result.path("summary"), SUMMARY_MAX),
-                followUp);
-        // 모든 제공자 필드가 검증된 뒤에만 새 평가의 표시·꼬리 정책을 적용한다.
-        return applyVerdict(draft);
+        Axis followUpAxis = comprehensive || result.get("followUpAxis").isNull()
+                ? null : enumValue(result.get("followUpAxis"), Axis.class);
+        if ((followUp == null) != (followUpAxis == null)) {
+            throw badResponse();
+        }
+        var accuracy = enumValue(result.path("technicalAccuracy"), TechnicalAccuracy.class);
+        var reasoning = enumValue(result.path("reasoning"), Reasoning.class);
+        var clarity = enumValue(result.path("clarity"), Clarity.class);
+        var uncertainties = textList(result.path("uncertainties"));
+        JsonNode assessments = result.path("assessments");
+        if (!assessments.isArray() || assessments.size() != Axis.values().length) {
+            throw badResponse();
+        }
+        Set<Axis> seen = new HashSet<>();
+        List<AxisAssessment> validated = new ArrayList<>();
+        for (JsonNode assessment : assessments) {
+            requireFields(assessment, Set.of("axis", "evidence", "coveredPoints", "improvements"));
+            Axis axis = enumValue(assessment.path("axis"), Axis.class);
+            if (!seen.add(axis)) {
+                throw badResponse();
+            }
+            JsonNode evidence = assessment.path("evidence");
+            if (!evidence.isArray() || evidence.isEmpty() || evidence.size() > AXIS_ITEM_MAX) {
+                throw badResponse();
+            }
+            List<AnswerEvidence> quotes = new ArrayList<>();
+            for (JsonNode item : evidence) {
+                requireFields(item, Set.of("source", "quote"));
+                var source = enumValue(item.path("source"), EvidenceSource.class);
+                String quote = text(item.path("quote"), EVIDENCE_QUOTE_MAX);
+                String answer = source == EvidenceSource.ORIGINAL_ANSWER ? context.originalAnswer()
+                        : comprehensive ? context.followUpAnswer() : null;
+                if (answer == null || !answer.contains(quote)) {
+                    throw badResponse();
+                }
+                quotes.add(new AnswerEvidence(source, quote));
+            }
+            validated.add(new AxisAssessment(axis, quotes,
+                    textList(assessment.path("coveredPoints"), AXIS_ITEM_MAX),
+                    textList(assessment.path("improvements"), AXIS_ITEM_MAX)));
+        }
+        // 긍정 축에서 지울 값도 모두 검증한 다음에만 표시·꼬리 정책을 적용한다.
+        List<AxisAssessment> normalized = validated.stream().map(item -> new AxisAssessment(item.axis(),
+                item.evidence(), item.coveredPoints(), positive(item.axis(), accuracy, reasoning, clarity)
+                ? List.of() : item.improvements())).toList();
+        Axis target = followUpAxis;
+        boolean hasGap = target != null && normalized.stream()
+                .anyMatch(item -> item.axis() == target && !item.improvements().isEmpty());
+        return applyVerdict(new Evaluation(accuracy, reasoning, clarity,
+                normalized.stream().flatMap(item -> item.coveredPoints().stream()).distinct().toList(),
+                normalized.stream().flatMap(item -> item.improvements().stream()).distinct().toList(),
+                uncertainties, "", hasGap ? followUp : null, normalized, hasGap ? target : null));
+    }
+
+    private static boolean positive(Axis axis, TechnicalAccuracy accuracy, Reasoning reasoning, Clarity clarity) {
+        return switch (axis) {
+            case TECHNICAL_ACCURACY -> accuracy == TechnicalAccuracy.CORRECT;
+            case REASONING -> reasoning == Reasoning.SUFFICIENT;
+            case CLARITY -> clarity == Clarity.CLEAR;
+        };
     }
 
     private static Evaluation applyVerdict(Evaluation draft) {
@@ -163,7 +216,8 @@ public class GroqService {
                 && draft.reasoning() == Reasoning.SUFFICIENT && draft.clarity() == Clarity.CLEAR;
         return new Evaluation(draft.technicalAccuracy(), draft.reasoning(), draft.clarity(), draft.strengths(),
                 adequate ? List.of() : draft.improvements(), adequate ? List.of() : draft.uncertainties(),
-                summary, adequate ? null : draft.followUpQuestion());
+                summary, adequate ? null : draft.followUpQuestion(), draft.assessments(),
+                adequate ? null : draft.followUpAxis());
     }
 
     private JsonNode complete(String system, Map<String, Object> responseFormat, Object data) {
@@ -250,7 +304,11 @@ public class GroqService {
     }
 
     private static List<String> textList(JsonNode node) {
-        if (!node.isArray() || node.size() > LIST_MAX) {
+        return textList(node, LIST_MAX);
+    }
+
+    private static List<String> textList(JsonNode node, int maxItems) {
+        if (!node.isArray() || node.size() > maxItems) {
             throw badResponse();
         }
         List<String> result = new ArrayList<>();

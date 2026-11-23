@@ -56,18 +56,18 @@ class InterviewFlowTest {
     private static final String SOURCE = "가상 캐시 프로젝트";
     private static final String FIRST = "캐시를 선택했습니다.";
     private static final String FOLLOW = "캐시를 선택한 기준은?";
-    private static final String INITIAL = """
+    private static final String INITIAL = GroqStub.groundedEvaluation("""
             {"technicalAccuracy":"NOT_ASSESSABLE","reasoning":"INSUFFICIENT","clarity":"CLEAR",
              "strengths":[],"improvements":["선택 근거"],"uncertainties":["실제 성과"],
              "summary":"기술적 정확성: 판단할 정보 부족. 근거: 부족함. 설명력: 명확함.","followUpQuestion":"캐시를 선택한 기준은?"}
-            """;
-    private static final String FINAL = """
+            """, FIRST);
+    private static final String FINAL = GroqStub.groundedEvaluation("""
             {"technicalAccuracy":"CORRECT","reasoning":"SUFFICIENT","clarity":"CLEAR",
              "strengths":["적합성 설명"],"improvements":[],"uncertainties":[],
              "summary":"기술적 정확성: 정확함. 근거: 충분함. 설명력: 명확함.","followUpQuestion":null}
-            """;
+            """, FIRST);
 
-    private static final String COMPREHENSIVE = FINAL.replace(",\"followUpQuestion\":null", "");
+    private static final String COMPREHENSIVE = GroqStub.providerEvaluation(FINAL, true);
     private static final List<String> AXES = List.of("기술적 정확성", "근거", "설명력");
 
     @TestConfiguration
@@ -132,7 +132,7 @@ class InterviewFlowTest {
         }
 
         long qid = roots.get(3).path("id").asLong();
-        stub.respondContent(INITIAL);
+        stub.respondContent(GroqStub.providerEvaluation(INITIAL, false));
         JsonNode first = created(answer(owner, sid, qid, FIRST));
         JsonNode context = lastContext();
         assertThat(context.path("originalQuestion").path("content").asString()).isEqualTo("선택 근거 4");
@@ -179,14 +179,17 @@ class InterviewFlowTest {
         Counts before = counts();
         var session = start();
         long sid = session.path("id").asLong(), root = firstId(session);
-        stub.respondContent("""
-                {"technicalAccuracy":"CORRECT","reasoning":"SUFFICIENT","clarity":"CLEAR",
-                 "strengths":["적합성 설명"],"improvements":["추가 대안이 없음"],"uncertainties":["인스턴스 수 불명"],
-                 "summary":"선택 이유가 부족함","followUpQuestion":"인스턴스는 몇 대인가요?"}
-                """);
+        String adequate = GroqStub.groundedEvaluation(FINAL, "인스턴스");
+        var draft = (tools.jackson.databind.node.ObjectNode) json.readTree(GroqStub.providerEvaluation(adequate, false));
+        ((tools.jackson.databind.node.ObjectNode) draft.at("/assessments/1"))
+                .set("improvements", json.valueToTree(List.of("추가 대안이 없음")));
+        draft.set("uncertainties", json.valueToTree(List.of("인스턴스 수 불명")));
+        draft.put("followUpAxis", "REASONING");
+        draft.put("followUpQuestion", "인스턴스는 몇 대인가요?");
+        stub.respondContent(json.writeValueAsString(draft));
         var result = created(answer(owner, sid, root, "인스턴스 셋이 공유하고 30초 지연은 허용합니다."));
         assertThat(result.get("followUpQuestion").isNull()).isTrue();
-        assertThat(result.path("evaluation")).isEqualTo(json.readTree(FINAL));
+        assertThat(result.path("evaluation")).isEqualTo(json.readTree(adequate));
         assertThat(storedEvaluation(result)).isEqualTo(result.path("evaluation"));
         var history = ok(detail(owner, sid)).path("questions");
         assertThat(history.size()).isEqualTo(5);
@@ -194,7 +197,7 @@ class InterviewFlowTest {
         assertThat(reloaded.path("id")).isEqualTo(result.path("id"));
         assertThat(reloaded.path("evaluation")).isEqualTo(result.path("evaluation"));
         assertThat(reloaded.get("followUpQuestion").isNull()).isTrue();
-        assertThat(reloaded.path("criteriaVersion").asString()).isEqualTo("resume-interview-v4");
+        assertThat(reloaded.path("criteriaVersion").asString()).isEqualTo("resume-interview-v5");
         assertThat(counts()).isEqualTo(before.plus(1, 5, 1));
         int calls = stub.requests().size();
         answer(owner, sid, root, FIRST).andExpect(status().isConflict());
@@ -214,7 +217,7 @@ class InterviewFlowTest {
         long rootId = firstId(session);
         long secondId = session.path("questions").get(1).path("id").asLong();
         String original = "  " + FIRST + "\n";
-        stub.respondContent(INITIAL);
+        stub.respondContent(GroqStub.providerEvaluation(INITIAL, false));
         long followUpId = created(answer(token, sid, rootId, original))
                 .path("followUpQuestion").path("id").asLong();
 
@@ -227,7 +230,7 @@ class InterviewFlowTest {
         stub.respondContent(COMPREHENSIVE);
         created(answer(token, sid, followUpId, additional));
         // Leave a different follow-up pending when the interview ends.
-        stub.respondContent(INITIAL);
+        stub.respondContent(GroqStub.providerEvaluation(INITIAL, false));
         long pendingId = created(answer(token, sid, secondId, FIRST))
                 .path("followUpQuestion").path("id").asLong();
         int calls = stub.requests().size();
@@ -239,7 +242,7 @@ class InterviewFlowTest {
         assertThat(history.path("resume").path("createdAt").asString()).isNotBlank();
         assertThat(history.get("categoryName").isNull()).isTrue();
         assertThat(history.path("model").asString()).isEqualTo("openai/gpt-oss-120b");
-        assertThat(history.path("criteriaVersion").asString()).isEqualTo("resume-interview-v4");
+        assertThat(history.path("criteriaVersion").asString()).isEqualTo("resume-interview-v5");
         JsonNode rows = history.path("questions");
         assertThat(rows.size()).isEqualTo(7);
         List<Long> orderedIds = List.of(rootId, followUpId, secondId, pendingId,
@@ -277,11 +280,11 @@ class InterviewFlowTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"resume-interview-v1", "resume-interview-v2", "resume-interview-v3"})
+    @ValueSource(strings = {"resume-interview-v1", "resume-interview-v2", "resume-interview-v3", "resume-interview-v4"})
     void evaluatesHistoricalFollowUpWithCurrentAxesWithoutRewritingHistory(String oldVersion) throws Exception {
         JsonNode session = start();
         long sid = session.path("id").asLong(), qid = firstId(session);
-        stub.respondContent(INITIAL);
+        stub.respondContent(GroqStub.providerEvaluation(INITIAL, false));
         var original = created(answer(owner, sid, qid, FIRST));
         long child = original.path("followUpQuestion").path("id").asLong();
         String oldCriteria = oldVersion.equals("resume-interview-v3")
@@ -289,7 +292,7 @@ class InterviewFlowTest {
         db.update("update sessions set criteria_version = ? where id = ?", oldVersion, sid);
         db.update("update questions set evaluation_criteria = ? where id = ?", oldCriteria, qid);
         // An old provider could report all positive axes and still persist deficits and a child.
-        var oldEvaluation = INITIAL.replace("NOT_ASSESSABLE", "CORRECT").replace("INSUFFICIENT", "SUFFICIENT")
+        var oldEvaluation = legacyEvaluation(INITIAL).replace("NOT_ASSESSABLE", "CORRECT").replace("INSUFFICIENT", "SUFFICIENT")
                 .replace("기술적 정확성: 판단할 정보 부족. 근거: 부족함. 설명력: 명확함.", "과거에 저장된 모순된 요약");
         db.update("update answers set criteria_version = ?, evaluation = ? where id = ?",
                 oldVersion, oldEvaluation, original.path("id").asLong());
@@ -298,7 +301,7 @@ class InterviewFlowTest {
         stub.respondContent(COMPREHENSIVE);
         var combined = created(answer(owner, sid, child, "요구사항에 맞았기 때문입니다."));
         assertThat(lastContext().at("/originalQuestion/evaluationCriteria")).isEqualTo(json.valueToTree(AXES));
-        assertThat(combined.path("criteriaVersion").asString()).isEqualTo("resume-interview-v4");
+        assertThat(combined.path("criteriaVersion").asString()).isEqualTo("resume-interview-v5");
         JsonNode after = ok(detail(owner, sid));
         assertThat(after.path("criteriaVersion").asString()).isEqualTo(oldVersion);
         assertThat(after.at("/questions/0/evaluationCriteria")).isEqualTo(json.readTree(oldCriteria));
@@ -310,7 +313,7 @@ class InterviewFlowTest {
     void readsTheRootAnswerAndFollowUpFromTheSameCommittedState() throws Exception {
         JsonNode session = start();
         long sid = session.path("id").asLong(), rootId = firstId(session);
-        stub.respondContent(INITIAL);
+        stub.respondContent(GroqStub.providerEvaluation(INITIAL, false));
         var beforeQuestions = new CountDownLatch(1);
         var answerCommitted = new CountDownLatch(1);
         var reader = Executors.newSingleThreadExecutor();
@@ -388,7 +391,7 @@ class InterviewFlowTest {
 
         JsonNode current = start();
         long currentId = current.path("id").asLong();
-        stub.respondContent(FINAL);
+        stub.respondContent(GroqStub.providerEvaluation(FINAL, false));
         created(answer(owner, currentId, firstId(current), FIRST));
         mvc.perform(get("/api/stats").header("Authorization", owner))
                 .andExpect(status().isOk())
@@ -440,7 +443,7 @@ class InterviewFlowTest {
         long unrelated = firstId(start());
         db.update("insert into questions(content) values (?)", "기존 고정 문제");
         long fixed = db.queryForObject("select max(id) from questions where session_id is null", Long.class);
-        stub.respondContent(INITIAL);
+        stub.respondContent(GroqStub.providerEvaluation(INITIAL, false));
         long child = created(answer(owner, sid, qid, FIRST)).path("followUpQuestion").path("id").asLong();
         calls = stub.requests().size();
         answer(owner, sid, unrelated, FIRST).andExpect(status().isNotFound());
@@ -481,8 +484,8 @@ class InterviewFlowTest {
                 .andExpect(status().isBadRequest());
         assertThat(stub.requests()).hasSize(calls);
         JsonNode s = start();
-        stub.respondContent(FINAL);
         String max = "🚀".repeat(10_000);
+        stub.respondContent(GroqStub.providerEvaluation(GroqStub.groundedEvaluation(FINAL, "🚀"), false));
         JsonNode one = created(answer(owner, s.path("id").asLong(), firstId(s), max));
         assertThat(one.path("userAnswer").asString()).isEqualTo(max);
         assertThat(one.path("followUpQuestion").isNull()).isTrue();
@@ -510,7 +513,7 @@ class InterviewFlowTest {
         failProvider(failure);
         answer(owner, sid, qid, FIRST).andExpect(status().is(expected));
         assertThat(counts()).isEqualTo(before);
-        stub.respondContent(FINAL);
+        stub.respondContent(GroqStub.providerEvaluation(FINAL, false));
         created(answer(owner, sid, qid, FIRST));
         assertThat(counts()).isEqualTo(before.plus(0, 0, 1));
     }
@@ -553,7 +556,7 @@ class InterviewFlowTest {
         long sid = s.path("id").asLong(), qid = firstId(s);
         db.execute("alter table questions add constraint flow_test_reject_child " +
                 "check (session_id <> " + sid + " or parent_question_id is null)");
-        stub.respondContent(INITIAL);
+        stub.respondContent(GroqStub.providerEvaluation(INITIAL, false));
         try {
             answer(owner, sid, qid, FIRST).andExpect(status().isInternalServerError());
             assertThat(counts()).isEqualTo(before.plus(1, 5, 0));
@@ -569,7 +572,7 @@ class InterviewFlowTest {
         JsonNode s = start();
         long sid = s.path("id").asLong(), qid = firstId(s);
         Counts before = counts();
-        stub.respondContent(INITIAL);
+        stub.respondContent(GroqStub.providerEvaluation(INITIAL, false));
         CountDownLatch arrivals = new CountDownLatch(2), release = new CountDownLatch(1);
         stub.holdResponses(arrivals, release);
         var pool = Executors.newFixedThreadPool(2);
@@ -593,7 +596,7 @@ class InterviewFlowTest {
         JsonNode s = start();
         long sid = s.path("id").asLong(), qid = firstId(s);
         Counts before = counts();
-        stub.respondContent(INITIAL);
+        stub.respondContent(GroqStub.providerEvaluation(INITIAL, false));
         CountDownLatch arrivals = new CountDownLatch(1), release = new CountDownLatch(1);
         stub.holdResponses(arrivals, release);
         var pool = Executors.newSingleThreadExecutor();
@@ -682,7 +685,7 @@ class InterviewFlowTest {
         assertThat(stored.path("evaluation")).isEqualTo(json.readTree(evaluation));
         assertThat(stored.path("evaluationStage").asString()).isEqualTo(stage);
         assertThat(stored.path("model").asString()).isEqualTo("openai/gpt-oss-120b");
-        assertThat(stored.path("criteriaVersion").asString()).isEqualTo("resume-interview-v4");
+        assertThat(stored.path("criteriaVersion").asString()).isEqualTo("resume-interview-v5");
     }
 
     private long legacySession(long ownerResume, long category) {
@@ -713,5 +716,12 @@ class InterviewFlowTest {
     private ResultActions send(String token, String path, Object body) throws Exception {
         return mvc.perform(post(path).header("Authorization", token).contentType(MediaType.APPLICATION_JSON)
                 .content(json.writeValueAsBytes(body)));
+    }
+
+    private String legacyEvaluation(String evaluation) {
+        var node = json.readTree(evaluation).deepCopy();
+        ((tools.jackson.databind.node.ObjectNode) node).remove("assessments");
+        ((tools.jackson.databind.node.ObjectNode) node).remove("followUpAxis");
+        return json.writeValueAsString(node);
     }
 }
