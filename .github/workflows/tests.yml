@@ -1,0 +1,44 @@
+name: Tests
+
+"on":
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Java
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '22'
+          package-manager-cache: false
+
+      - name: Verify Java tests and package without live AI
+        run: >-
+          ./mvnw --batch-mode --no-transfer-progress
+          -Dspring.profiles.active=test
+          '-Dspring.config.location=classpath:application.properties,classpath:application-test.yml'
+          -Dgroq.live.confirmed=false
+          -Dgroq.technical.probe.confirmed=false
+          -Dgroq.quality.confirmed=false
+          -Dsurefire.rerunFailingTestsCount=0 verify
+
+      - name: Test web client
+        run: node --experimental-default-type=module --test web-tests/*.test.mjs

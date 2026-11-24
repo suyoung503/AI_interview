@@ -117,6 +117,8 @@ Docker 빌드 컨텍스트에는 Dockerfile과 새로 패키징한 `target/inter
 
 ## 테스트
 
+GitHub의 push와 pull request에서는 [Tests 워크플로](.github/workflows/tests.yml)가 Java 17의 Maven `verify`와 Node.js 22의 웹 테스트를 자동 실행합니다. H2와 로컬 HTTP 스텁을 사용하며 API 키나 DB 비밀 설정은 필요하지 않습니다. 실제 AI 검증은 명시적으로 비활성화하고, 별도 MySQL 검증은 이 CI에 포함하지 않습니다. CI 통과는 실제 모델의 평가 품질을 보장하지 않습니다.
+
 경로 정리 이전 버전에서 이미 빌드했다면, 업데이트 후 최초 테스트·패키징 전에 `./mvnw -o clean`을 한 번 실행하세요. 이전 클래스와 설정이 남는 것을 막기 위한 조치입니다. `clean`은 `target/` 전체를 삭제하므로 필요한 스크린샷·검증 로그는 먼저 `target/` 밖에 복사하세요.
 
 ```bash
